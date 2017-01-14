@@ -32,7 +32,7 @@ func Search(ctx *gin.Context) {
 	items := make(xbmc.ListItems, 0, len(torrents))
 	for _, torrent := range torrents {
 		item := &xbmc.ListItem{
-			Label:      fmt.Sprintf("S:%d P:%d - %s", torrent.Seeds, torrent.Peers, torrent.Name),
+			Label:      fmt.Sprintf("S:%d P:%d - %s [%s]" , torrent.Seeds, torrent.Peers, torrent.Name, torrent.Size),
 			Path:       UrlQuery(UrlForXBMC("/play"), "uri", torrent.URI),
 			IsPlayable: true,
 		}
