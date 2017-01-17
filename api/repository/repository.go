@@ -37,10 +37,6 @@ func getLastRelease(user string, repository string) (string, string) {
 	releases, _, _ := client.Repositories.ListReleases(user, repository, nil)
 	if len(releases) > 0 {
 		lastRelease := releases[0]
-		if config.Get().PreReleaseUpdates == false {
-			latestRelease, _, _ := client.Repositories.GetLatestRelease(user, repository)
-			lastRelease = latestRelease
-		}
 		return *lastRelease.TagName, *lastRelease.TargetCommitish
 	}
 	return "", "master"

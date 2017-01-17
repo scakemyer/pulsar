@@ -30,7 +30,6 @@ type Configuration struct {
 	ChooseStreamAuto    bool
 	UseOriginalTitle    bool
 	AddSpecials         bool
-	PreReleaseUpdates   bool
 	BufferSize          int
 	UploadRateLimit     int
 	DownloadRateLimit   int
@@ -152,7 +151,6 @@ func Reload() *Configuration {
 		ChooseStreamAuto:    settings["choose_stream_auto"].(bool),
 		UseOriginalTitle:    settings["use_original_title"].(bool),
 		AddSpecials:         settings["add_specials"].(bool),
-		PreReleaseUpdates:   settings["pre_release_updates"].(bool),
 		ShareRatioLimit:     settings["share_ratio_limit"].(int),
 		SeedTimeRatioLimit:  settings["seed_time_ratio_limit"].(int),
 		SeedTimeLimit:       settings["seed_time_limit"].(int) * 3600,
