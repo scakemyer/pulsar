@@ -8,6 +8,7 @@ import (
 	"sync"
 	"time"
 	"errors"
+	"regexp"
 	"strconv"
 	"strings"
 	"io/ioutil"
@@ -534,6 +535,24 @@ func (btp *BTPlayer) chooseFile() (int, error) {
 				Filename: fileName,
 			}
 			choices = append(choices, candidate)
+		}
+
+		if btp.episode > 0 {
+			var lastMatched int
+			var foundMatches int
+			// Case-insensitive, starting with a line-start or non-ascii, can have leading zeros, followed by non-ascii
+			// TODO: Add logic for matching S01E0102 (double episode filename)
+			re := regexp.MustCompile(fmt.Sprintf("(?i)(^|\\W)S0*?%dE0*?%d\\W", btp.season, btp.episode))
+			for index, choice := range choices {
+				if re.MatchString(choice.Filename) {
+					lastMatched = index
+					foundMatches++
+				}
+			}
+
+			if foundMatches == 1 {
+				return choices[lastMatched].Index, nil
+			}
 		}
 
 		sort.Sort(byFilename(choices))
