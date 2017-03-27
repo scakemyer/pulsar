@@ -137,6 +137,7 @@ func (as *AddonSearcher) GetMovieSearchObject(movie *tmdb.Movie) *MovieSearchObj
 }
 
 func (as *AddonSearcher) GetSeasonSearchObject(show *tmdb.Show, season *tmdb.Season) *SeasonSearchObject {
+	year, _ := strconv.Atoi(strings.Split(season.AirDate, "-")[0])
 	title := show.OriginalName
 	if title == "" {
 		title = show.Name
@@ -146,11 +147,13 @@ func (as *AddonSearcher) GetSeasonSearchObject(show *tmdb.Show, season *tmdb.Sea
 		IMDBId:         show.ExternalIDs.IMDBId,
 		TVDBId:         util.StrInterfaceToInt(show.ExternalIDs.TVDBID),
 		Title:          NormalizeTitle(title),
+		Year:           year,
 		Season:         season.Season,
 	}
 }
 
 func (as *AddonSearcher) GetEpisodeSearchObject(show *tmdb.Show, episode *tmdb.Episode) *EpisodeSearchObject {
+	year, _ := strconv.Atoi(strings.Split(episode.AirDate, "-")[0])
 	title := show.OriginalName
 	if title == "" {
 		title = show.Name
@@ -196,6 +199,7 @@ func (as *AddonSearcher) GetEpisodeSearchObject(show *tmdb.Show, episode *tmdb.E
 		Title:          NormalizeTitle(title),
 		Season:         episode.SeasonNumber,
 		Episode:        episode.EpisodeNumber,
+		Year:           year,
 		AbsoluteNumber: absoluteNumber,
 	}
 }

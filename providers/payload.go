@@ -23,6 +23,7 @@ type SeasonSearchObject struct {
 	TVDBId         int               `json:"tvdb_id"`
 	Title          string            `json:"title"`
 	Season         int               `json:"season"`
+	Year           int               `json:"year"`
 	Titles         map[string]string `json:"titles"`
 }
 
@@ -32,6 +33,7 @@ type EpisodeSearchObject struct {
 	Title          string            `json:"title"`
 	Season         int               `json:"season"`
 	Episode        int               `json:"episode"`
+	Year           int               `json:"year"`
 	Titles         map[string]string `json:"titles"`
 	AbsoluteNumber int               `json:"absolute_number"`
 }
