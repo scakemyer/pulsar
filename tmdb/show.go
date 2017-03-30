@@ -100,10 +100,11 @@ func GetShow(showId int, language string) (show *Show) {
 				log.Warning(message)
 				xbmc.Notify("Quasar", message, config.AddonIcon())
 			}
+
+			if show != nil {
+				cacheStore.Set(key, show, cacheExpiration)
+			}
 		})
-		if show != nil {
-			cacheStore.Set(key, show, cacheExpiration)
-		}
 	}
 	if show == nil {
 		return nil
@@ -377,6 +378,7 @@ func (show *Show) ToListItem() *xbmc.ListItem {
 			Poster: ImageURL(show.PosterPath, "w500"),
 		},
 	}
+
 	item.Thumbnail = item.Art.Poster
 	item.Art.Thumbnail = item.Art.Poster
 

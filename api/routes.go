@@ -36,6 +36,7 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 	r.GET("/", Index)
 	r.GET("/search", Search(btService))
 	r.GET("/playtorrent", PlayTorrent)
+	r.GET("/infolabels", InfoLabelsStored(btService))
 
 	r.LoadHTMLGlob(filepath.Join(config.Get().Info.Path, "resources", "web", "*.html"))
 	web := r.Group("/web")
@@ -105,6 +106,7 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 	}
 	movie := r.Group("/movie")
 	{
+		movie.GET("/:tmdbId/infolabels", InfoLabelsMovie(btService))
 		movie.GET("/:tmdbId/links", MovieLinks(btService))
 		movie.GET("/:tmdbId/play", MoviePlay(btService))
 		movie.GET("/:tmdbId/watchlist/add", AddMovieToWatchlist)
@@ -162,6 +164,7 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 		show.GET("/:showId/seasons", cache.Cache(store, DefaultCacheExpiration), ShowSeasons)
 		show.GET("/:showId/season/:season/links", ShowSeasonLinks(btService))
 		show.GET("/:showId/season/:season/episodes", cache.Cache(store, RecentCacheExpiration), ShowEpisodes)
+		show.GET("/:showId/season/:season/episode/:episode/infolabels", InfoLabelsEpisode(btService))
 		show.GET("/:showId/season/:season/episode/:episode/play", ShowEpisodePlay(btService))
 		show.GET("/:showId/season/:season/episode/:episode/links", ShowEpisodeLinks(btService))
 		show.GET("/:showId/watchlist/add", AddShowToWatchlist)

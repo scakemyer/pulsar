@@ -1249,6 +1249,57 @@ func CloseLibrary() {
 	close(closing)
 }
 
+
+//
+// Library searchers
+//
+func FindMovieInLibrary(movie *tmdb.Movie) *xbmc.VideoLibraryMovieItem {
+	if libraryMovies == nil {
+		return nil
+	}
+	for _, existingMovie := range libraryMovies.Movies {
+		if existingMovie.IMDBNumber != "" {
+			if existingMovie.IMDBNumber == movie.IMDBId {
+				return existingMovie
+			}
+		}
+	}
+
+	return nil
+}
+
+func FindEpisodeInLibrary(show *tmdb.Show, episode *tmdb.Episode) *xbmc.VideoLibraryEpisodeItem {
+	var tvshowId int
+	if libraryShows == nil {
+		return nil
+	}
+	for _, existingShow := range libraryShows.Shows {
+		if existingShow.ScraperID == strconv.Itoa(show.Id) {
+			tvshowId = existingShow.ID
+			break
+		}
+	}
+
+	if tvshowId == 0 {
+		return nil
+	} else if libraryEpisodes == nil {
+		return nil
+	}
+
+	if episodes, exists := libraryEpisodes[tvshowId]; exists {
+		if episodes == nil {
+			return nil
+		}
+		for _, existingEpisode := range episodes.Episodes {
+			if existingEpisode.UniqueIDs.ID == strconv.Itoa(episode.Id) {
+				return existingEpisode
+			}
+		}
+	}
+
+	return nil
+}
+
 //
 // Kodi notifications
 //

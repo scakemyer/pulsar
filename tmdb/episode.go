@@ -82,6 +82,7 @@ func (episodes EpisodeList) ToListItems(show *Show, season *Season) []*xbmc.List
 				item.Art.FanArt = fanarts[rand.Intn(len(fanarts))]
 			}
 		}
+
 		item.Art.Poster = ImageURL(season.Poster, "w500")
 
 		items = append(items, item)
@@ -99,13 +100,14 @@ func (episode *Episode) ToListItem(show *Show) *xbmc.ListItem {
 
 	item := &xbmc.ListItem{
 		Label: episodeLabel,
+		Label2: fmt.Sprintf("%f", episode.VoteAverage),
 		Info: &xbmc.ListItemInfo{
 			Count:         rand.Int(),
 			Title:         episodeLabel,
 			OriginalTitle: episode.Name,
 			Season:        episode.SeasonNumber,
 			Episode:       episode.EpisodeNumber,
-			TVShowTitle:   show.OriginalName,
+			TVShowTitle:   show.Name,
 			Plot:          episode.Overview,
 			PlotOutline:   episode.Overview,
 			Rating:        episode.VoteAverage,

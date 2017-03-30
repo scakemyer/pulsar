@@ -116,12 +116,8 @@ func TranslatePath(path string) (retVal string) {
 }
 
 func PlayURL(url string) {
-	var item struct {
-		File string `json:"file"`
-	}
-	item.File = url
-	retVal := 0
-	executeJSONRPC("Player.Open", &retVal, Args{item})
+	retVal := ""
+	executeJSONRPCEx("Player_Open", &retVal, Args{url})
 }
 
 const (

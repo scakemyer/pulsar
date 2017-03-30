@@ -122,6 +122,17 @@ func InfoLabel(label string) string {
 	return labels[label]
 }
 
+func GetWindowProperty(key string) string {
+	var retVal string
+	executeJSONRPCEx("GetWindowProperty", &retVal, Args{key})
+	return retVal
+}
+
+func SetWindowProperty(key string, value string) {
+	var retVal string
+	executeJSONRPCEx("SetWindowProperty", &retVal, Args{key, value})
+}
+
 func Keyboard(args ...interface{}) string {
 	var retVal string
 	executeJSONRPCEx("Keyboard", &retVal, args)

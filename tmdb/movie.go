@@ -385,6 +385,7 @@ func (movie *Movie) ToListItem() *xbmc.ListItem {
 
 	item := &xbmc.ListItem{
 		Label: title,
+		Label2: fmt.Sprintf("%f", movie.VoteAverage),
 		Info: &xbmc.ListItemInfo{
 			Year:          year,
 			Count:         rand.Int(),
@@ -407,6 +408,7 @@ func (movie *Movie) ToListItem() *xbmc.ListItem {
 			Poster: ImageURL(movie.PosterPath, "w500"),
 		},
 	}
+
 	item.Thumbnail = item.Art.Poster
 	item.Art.Thumbnail = item.Art.Poster
 	genres := make([]string, 0, len(movie.Genres))

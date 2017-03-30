@@ -75,6 +75,7 @@ type ListItemInfo struct {
 	Votes         string         `json:"votes,omitempty"`
 	Trailer       string         `json:"trailer,omitempty"`
 	DateAdded     string         `json:"dateadded,omitempty"`
+	DBID          int            `json:"dbid,omitempty"`
 	DBTYPE        string         `json:"dbtype,omitempty"`
 	Mediatype     string         `json:"mediatype,omitempty"`
 	IMDBNumber    string         `json:"imdbnumber,omitempty"`
@@ -88,13 +89,14 @@ type ListItemInfo struct {
 }
 
 type ListItemArt struct {
-	Thumbnail string `json:"thumb,omitempty"`
-	Poster    string `json:"poster,omitempty"`
-	Banner    string `json:"banner,omitempty"`
-	FanArt    string `json:"fanart,omitempty"`
-	ClearArt  string `json:"clearart,omitempty"`
-	ClearLogo string `json:"clearlogo,omitempty"`
-	Landscape string `json:"landscape,omitempty"`
+	Thumbnail    string `json:"thumb,omitempty"`
+	Poster       string `json:"poster,omitempty"`
+	TvShowPoster string `json:"tvshowposter,omitempty"`
+	Banner       string `json:"banner,omitempty"`
+	FanArt       string `json:"fanart,omitempty"`
+	ClearArt     string `json:"clearart,omitempty"`
+	ClearLogo    string `json:"clearlogo,omitempty"`
+	Landscape    string `json:"landscape,omitempty"`
 }
 
 type ContextMenuItem struct {
