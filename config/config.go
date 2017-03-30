@@ -145,6 +145,7 @@ func Reload() *Configuration {
 	} else {
 		settingsSet = true
 	}
+	log.Infof("Using download path: %s", downloadPath)
 
 	libraryPath := filepath.Dir(xbmc.TranslatePath(xbmc.GetSettingString("library_path")))
 	if libraryPath == "." {
@@ -291,7 +292,7 @@ func IsWritablePath(path string) error {
 		if err != nil {
 			return err
 		}
-    return errors.New(fmt.Sprintf("%s is not a valid directory", path))
+	    return errors.New(fmt.Sprintf("%s is not a valid directory", path))
 	}
 	writableFile := filepath.Join(path, ".writable")
 	if writable, err := os.Create(writableFile); err != nil {
