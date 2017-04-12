@@ -69,6 +69,7 @@ type BTPlayer struct {
 	torrentHandle            libtorrent.TorrentHandle
 	torrentInfo              libtorrent.TorrentInfo
 	chosenFile               int
+	subtitlesFile            int
 	fileSize                 int64
 	fileName                 string
 	lastStatus               libtorrent.TorrentStatus
@@ -420,6 +421,8 @@ func (btp *BTPlayer) onMetadataReceived() {
 	btp.fileName = fileName
 	btp.log.Infof("Chosen file: %s", fileName)
 
+	btp.subtitlesFile = btp.findSubtitlesFile()
+
 	btp.log.Infof("Saving torrent to database")
 	btp.bts.UpdateDB(Update, infoHash, btp.tmdbId, btp.contentType, btp.chosenFile, btp.showId, btp.season, btp.episode)
 
@@ -437,6 +440,8 @@ func (btp *BTPlayer) onMetadataReceived() {
 	defer libtorrent.DeleteStdVectorInt(filesPriorities)
 	for i := 0; i < numFiles; i++ {
 		if i == btp.chosenFile {
+			filesPriorities.Add(4)
+		} else if i == btp.subtitlesFile {
 			filesPriorities.Add(4)
 		} else {
 			filesPriorities.Add(0)
@@ -613,6 +618,34 @@ func (btp *BTPlayer) chooseFile() (int, error) {
 	}
 
 	return biggestFile, nil
+}
+
+func (btp *BTPlayer) findSubtitlesFile() (int) {
+	extension := filepath.Ext(btp.fileName)
+	chosenName := btp.fileName[0:len(btp.fileName)-len(extension)]
+	srtFileName := chosenName + ".srt"
+
+	numFiles := btp.torrentInfo.NumFiles()
+	files := btp.torrentInfo.Files()
+
+	lastMatched := 0;
+	countMatched := 0;
+
+	for i := 0; i < numFiles; i++ {
+		fileName := files.FilePath(i)
+		if strings.HasSuffix(fileName, srtFileName) {
+			return i
+		} else if strings.HasSuffix(fileName, ".srt") {
+			lastMatched = i
+			countMatched++
+		}
+	}
+
+	if countMatched == 1 {
+		return lastMatched
+	}
+
+	return -1
 }
 
 func (btp *BTPlayer) onStateChanged(stateAlert libtorrent.StateChangedAlert) {
@@ -911,7 +944,7 @@ playbackWaitLoop:
 		case <-playbackTimeout:
 			btp.log.Warningf("Playback was unable to start after %d seconds. Aborting...", playbackMaxWait / time.Second)
 			btp.bufferEvents.Broadcast(errors.New("Playback was unable to start before timeout."))
-		 	return
+			return
 		case <-oneSecond.C:
 		}
 	}

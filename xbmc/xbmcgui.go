@@ -186,6 +186,10 @@ func PlayerIsPaused() bool {
 	return retVal != 0
 }
 
+func PlayerSetSubtitles(url string) {
+	executeJSONRPCEx("Player_SetSubtitles", nil, Args{url})
+}
+
 func GetWatchTimes() map[string]string {
 	var retVal map[string]string
 	executeJSONRPCEx("Player_WatchTimes", &retVal, nil)

@@ -12,6 +12,8 @@ import (
 	"github.com/op/go-logging"
 	"github.com/scakemyer/libtorrent-go"
 	"github.com/scakemyer/quasar/broadcast"
+	"github.com/scakemyer/quasar/util"
+	"github.com/scakemyer/quasar/xbmc"
 )
 
 const (
@@ -99,6 +101,8 @@ func NewTorrentFile(file *os.File, tfs *TorrentFS, torrentHandle libtorrent.Torr
 	}
 	go tf.consumeAlerts()
 
+	tf.setSubtitles()
+
 	return tf, nil
 }
 
@@ -112,6 +116,23 @@ func (tf *TorrentFile) consumeAlerts() {
 			if removedAlert.GetHandle().Equal(tf.torrentHandle) {
 				tf.removed.Signal()
 				return
+			}
+		}
+	}
+}
+
+func (tf *TorrentFile) setSubtitles() {
+	extension := filepath.Ext(tf.filePath)
+	// Avoid cyclic requests
+	if extension != ".srt" {
+		numFiles := tf.torrentInfo.NumFiles()
+		files := tf.torrentInfo.Files()
+		srtPath := tf.filePath[0:len(tf.filePath)-len(extension)] + ".srt"
+
+		for i := 0; i < numFiles; i++ {
+			if files.FilePath(i) == srtPath {
+				xbmc.PlayerSetSubtitles(util.GetHTTPHost() + "/files/" + srtPath)
+				return;
 			}
 		}
 	}
