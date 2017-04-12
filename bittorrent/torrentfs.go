@@ -7,6 +7,7 @@ import (
 	"errors"
 	"unsafe"
 	"net/http"
+	"encoding/hex"
 	"path/filepath"
 
 	"github.com/op/go-logging"
@@ -26,18 +27,20 @@ type TorrentFS struct {
 
 type TorrentFile struct {
 	*os.File
-	tfs               *TorrentFS
-	torrentHandle     libtorrent.TorrentHandle
-	torrentInfo       libtorrent.TorrentInfo
-	pieceLength       int
-	filePath          string
-	fileOffset        int64
-	fileSize          int64
-	piecesMx          sync.RWMutex
-	pieces            Bitfield
-	piecesLastUpdated time.Time
-	lastStatus        libtorrent.TorrentStatus
-	removed           *broadcast.Broadcaster
+	tfs                *TorrentFS
+	torrentHandle      libtorrent.TorrentHandle
+	torrentInfo        libtorrent.TorrentInfo
+	pieceLength        int
+	filePath           string
+	fileOffset         int64
+	fileSize           int64
+	piecesMx           sync.RWMutex
+	pieces             Bitfield
+	piecesLastUpdated  time.Time
+	lastStatus         libtorrent.TorrentStatus
+	removed            *broadcast.Broadcaster
+	libraryBroadcaster *broadcast.Broadcaster
+	dbItem             *DBItem
 }
 
 func NewTorrentFS(service *BTService, path string) *TorrentFS {
@@ -87,17 +90,19 @@ func (tfs *TorrentFS) Open(name string) (http.File, error) {
 
 func NewTorrentFile(file *os.File, tfs *TorrentFS, torrentHandle libtorrent.TorrentHandle, torrentInfo libtorrent.TorrentInfo, filePath string, fileOffset int64, fileSize int64) (*TorrentFile, error) {
 	tf := &TorrentFile{
-		File:          file,
-		tfs:           tfs,
-		torrentHandle: torrentHandle,
-		torrentInfo:   torrentInfo,
-		filePath:      filePath,
-		pieceLength:   torrentInfo.PieceLength(),
-		fileOffset:    fileOffset,
-		fileSize:      fileSize,
-		removed:       broadcast.NewBroadcaster(),
+		File:               file,
+		tfs:                tfs,
+		torrentHandle:      torrentHandle,
+		torrentInfo:        torrentInfo,
+		filePath:           filePath,
+		pieceLength:        torrentInfo.PieceLength(),
+		fileOffset:         fileOffset,
+		fileSize:           fileSize,
+		removed:            broadcast.NewBroadcaster(),
+		libraryBroadcaster: broadcast.LocalBroadcasters[broadcast.WATCHED],
 	}
 	go tf.consumeAlerts()
+	tf.GetDBItem()
 
 	return tf, nil
 }
@@ -151,9 +156,23 @@ func (tf *TorrentFile) hasPiece(idx int) bool {
 	return tf.pieces.GetBit(idx)
 }
 
+func (tf *TorrentFile) GetDBItem() {
+	infoHash := hex.EncodeToString([]byte(tf.torrentInfo.InfoHash().ToString()))
+	if item := tf.tfs.service.GetDBItem(infoHash); item != nil {
+		tf.dbItem = item
+	}
+}
+
 func (tf *TorrentFile) Close() error {
 	tf.tfs.log.Info("Closing file...")
 	tf.removed.Signal()
+
+	tf.libraryBroadcaster.Broadcast(&PlayingItem{
+		DBItem:      tf.dbItem,
+		WatchedTime: WatchedTime,
+		Duration:    VideoDuration,
+	})
+
 	return tf.File.Close()
 }
 

@@ -30,7 +30,7 @@ import (
 )
 
 const (
-	Bucket = "BitTorrent"
+	Bucket                  = "BitTorrent"
 	libtorrentAlertWaitTime = 1 // 1 second
 )
 
@@ -151,16 +151,22 @@ type DBItem struct {
 	Episode int    `json:"episode"`
 }
 
+type PlayingItem struct {
+	DBItem      *DBItem
+	WatchedTime float64
+	Duration    float64
+}
+
 type ResumeFile struct {
-	InfoHash  string     `bencode:"info-hash"`
-	Trackers  [][]string `bencode:"trackers"`
+	InfoHash string     `bencode:"info-hash"`
+	Trackers [][]string `bencode:"trackers"`
 }
 
 type activeTorrent struct {
-	torrentName       string
-	downloadRate      float64
-	uploadRate        float64
-	progress          int
+	torrentName  string
+	downloadRate float64
+	uploadRate   float64
+	progress     int
 }
 
 func NewBTService(conf BTConfiguration, db *bolt.DB) *BTService {
@@ -176,7 +182,7 @@ func NewBTService(conf BTConfiguration, db *bolt.DB) *BTService {
 	}
 
 	if _, err := os.Stat(s.config.TorrentsPath); os.IsNotExist(err) {
-		if err := os.Mkdir(s.config.TorrentsPath, 0755); err != nil{
+		if err := os.Mkdir(s.config.TorrentsPath, 0755); err != nil {
 			s.log.Error("Unable to create Torrents folder")
 		}
 	}
@@ -736,10 +742,10 @@ func (s *BTService) downloadProgress() {
 				progress := int(float64(torrentStatus.GetProgress()) * 100)
 				if progress < 100 && !isPaused {
 					activeTorrents = append(activeTorrents, &activeTorrent{
-						torrentName: torrentName,
+						torrentName:  torrentName,
 						downloadRate: downloadRate,
-						uploadRate: uploadRate,
-						progress: progress,
+						uploadRate:   uploadRate,
+						progress:     progress,
 					})
 					totalProgress += progress
 					continue
@@ -1001,12 +1007,12 @@ func (s *BTService) UpdateDB(Operation int, InfoHash string, ID int, Type string
 		err = s.db.Update(func(tx *bolt.Tx) error {
 			b := tx.Bucket([]byte(Bucket))
 			item := DBItem{
-				State: Active,
-				ID: ID,
-				Type: Type,
-				File: infos[0],
-				ShowID: infos[1],
-				Season: infos[2],
+				State:   Active,
+				ID:      ID,
+				Type:    Type,
+				File:    infos[0],
+				ShowID:  infos[1],
+				Season:  infos[2],
 				Episode: infos[3],
 			}
 			if buf, err := json.Marshal(item); err != nil {
@@ -1075,27 +1081,27 @@ func (s *BTService) alertsConsumer() {
 				alertPtr := ltAlert.Swigcptr()
 				alertMessage := ltAlert.Message()
 				switch alertType {
-					case libtorrent.SaveResumeDataAlertAlertType:
-						saveResumeData := libtorrent.SwigcptrSaveResumeDataAlert(alertPtr)
-						torrentHandle := saveResumeData.GetHandle()
-						torrentStatus := torrentHandle.Status(uint(libtorrent.TorrentHandleQuerySavePath) | uint(libtorrent.TorrentHandleQueryName))
-						name = torrentStatus.GetName()
-						shaHash := torrentStatus.GetInfoHash().ToString()
-						infoHash = hex.EncodeToString([]byte(shaHash))
-						entry = saveResumeData.ResumeData()
-					case libtorrent.ExternalIpAlertAlertType:
-						splitMessage := strings.Split(alertMessage, ":")
-						splitIP := strings.Split(splitMessage[len(splitMessage) - 1], ".")
-						alertMessage = strings.Join(splitMessage[:len(splitMessage) - 1], ":") + splitIP[0] + ".XX.XX.XX"
+				case libtorrent.SaveResumeDataAlertAlertType:
+					saveResumeData := libtorrent.SwigcptrSaveResumeDataAlert(alertPtr)
+					torrentHandle := saveResumeData.GetHandle()
+					torrentStatus := torrentHandle.Status(uint(libtorrent.TorrentHandleQuerySavePath) | uint(libtorrent.TorrentHandleQueryName))
+					name = torrentStatus.GetName()
+					shaHash := torrentStatus.GetInfoHash().ToString()
+					infoHash = hex.EncodeToString([]byte(shaHash))
+					entry = saveResumeData.ResumeData()
+				case libtorrent.ExternalIpAlertAlertType:
+					splitMessage := strings.Split(alertMessage, ":")
+					splitIP := strings.Split(splitMessage[len(splitMessage) - 1], ".")
+					alertMessage = strings.Join(splitMessage[:len(splitMessage) - 1], ":") + splitIP[0] + ".XX.XX.XX"
 				}
 				alert := &Alert{
-					Type: alertType,
+					Type:     alertType,
 					Category: ltAlert.Category(),
-					What: ltAlert.What(),
-					Message: alertMessage,
-					Pointer: alertPtr,
-					Name: name,
-					Entry: entry,
+					What:     ltAlert.What(),
+					Message:  alertMessage,
+					Pointer:  alertPtr,
+					Name:     name,
+					Entry:    entry,
 					InfoHash: infoHash,
 				}
 				s.alertsBroadcaster.Broadcast(alert)

@@ -164,6 +164,40 @@ func updateLibraryEpisodes(showId int) {
 }
 
 //
+// Watched handling
+//
+func UpdateMovieWatched(item *xbmc.VideoLibraryMovieItem, watchedTime float64, videoDuration float64) {
+	progress := watchedTime / videoDuration * 100
+
+	libraryLog.Infof("Currently at %f%%, DBID: %d", progress, item.ID)
+
+	if progress > 90 {
+		xbmc.SetMovieWatched(item.ID, 1, 0, 0)
+	} else if watchedTime > 180 {
+		xbmc.SetMovieWatched(item.ID, 0, int(watchedTime), int(videoDuration))
+	} else {
+		time.Sleep(200 * time.Millisecond)
+		xbmc.Refresh()
+	}
+}
+
+func UpdateEpisodeWatched(item *xbmc.VideoLibraryEpisodeItem, watchedTime float64, videoDuration float64) {
+	progress := watchedTime / videoDuration * 100
+
+	libraryLog.Infof("Currently at %f%%, DBID: %d", progress, item.ID)
+
+	if progress > 90 {
+		xbmc.SetEpisodeWatched(item.ID, 1, 0, 0)
+	} else if watchedTime > 180 {
+		xbmc.SetEpisodeWatched(item.ID, 0, int(watchedTime), int(videoDuration))
+	} else {
+		time.Sleep(200 * time.Millisecond)
+		xbmc.Refresh()
+	}
+}
+
+
+//
 // Duplicate handling
 //
 func isDuplicateMovie(tmdbId string) (*tmdb.Movie, error) {
@@ -1253,6 +1287,29 @@ func CloseLibrary() {
 //
 // Library searchers
 //
+func FindByIdEpisodeInLibrary(showId int, seasonNumber int, episodeNumber int) *xbmc.VideoLibraryEpisodeItem {
+	show := tmdb.GetShow(showId, config.Get().Language)
+	if show == nil {
+		return nil
+	}
+
+	episode := tmdb.GetEpisode(showId, seasonNumber, episodeNumber, config.Get().Language)
+	if episode != nil {
+		return FindEpisodeInLibrary(show, episode)
+	}
+
+	return nil
+}
+
+func FindByIdMovieInLibrary(id string) *xbmc.VideoLibraryMovieItem {
+	movie := tmdb.GetMovieById(id, config.Get().Language)
+	if movie != nil {
+		return FindMovieInLibrary(movie)
+	}
+
+	return nil
+}
+
 func FindMovieInLibrary(movie *tmdb.Movie) *xbmc.VideoLibraryMovieItem {
 	if libraryMovies == nil {
 		return nil
@@ -1402,44 +1459,6 @@ func Notification(btService *bittorrent.BTService) gin.HandlerFunc {
 				position = episode.Resume.Position
 			}
 			xbmc.PlayerSeek(position)
-
-		case "Player.OnStop":
-			if bittorrent.VideoDuration <= 1 {
-				return
-			}
-			var stopped struct {
-				Ended bool `json:"end"`
-				Item  struct {
-					ID   int    `json:"id"`
-					Type string `json:"type"`
-				} `json:"item"`
-			}
-			jsonData, _ := base64.StdEncoding.DecodeString(data)
-			if err := json.Unmarshal(jsonData, &stopped); err != nil {
-				libraryLog.Error(err)
-				return
-			}
-
-			progress := bittorrent.WatchedTime / bittorrent.VideoDuration * 100
-
-			libraryLog.Infof("Stopped at %f%%", progress)
-
-			if stopped.Ended || progress > 90 {
-				if stopped.Item.Type == "movie" {
-					xbmc.SetMovieWatched(stopped.Item.ID, 1, 0, 0)
-				} else {
-					xbmc.SetEpisodeWatched(stopped.Item.ID, 1, 0, 0)
-				}
-			} else if bittorrent.WatchedTime > 180 {
-				if stopped.Item.Type == "movie" {
-					xbmc.SetMovieWatched(stopped.Item.ID, 0, int(bittorrent.WatchedTime), int(bittorrent.VideoDuration))
-				} else {
-					xbmc.SetEpisodeWatched(stopped.Item.ID, 0, int(bittorrent.WatchedTime), int(bittorrent.VideoDuration))
-				}
-			} else {
-				time.Sleep(200 * time.Millisecond)
-				xbmc.Refresh()
-			}
 
 		case "VideoLibrary.OnUpdate":
 			time.Sleep(200 * time.Millisecond) // Because Kodi...

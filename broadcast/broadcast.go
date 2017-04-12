@@ -34,6 +34,14 @@ type receiver struct {
 	c  chan message
 }
 
+const (
+	WATCHED = iota
+)
+
+var LocalBroadcasters = map[int]*Broadcaster{
+	WATCHED: NewLocalBroadcaster(),
+}
+
 // New creates a new broadcaster with the necessary internal
 // structure. The uninitialized broadcaster is unsuitable to be listened or
 // written to.
@@ -42,6 +50,10 @@ func NewBroadcaster() *Broadcaster {
 		sync.Mutex{},
 		make(chan message, 1),
 	}
+}
+
+func NewLocalBroadcaster() *Broadcaster {
+	return NewBroadcaster()
 }
 
 // Write a value to all listening receivers.
