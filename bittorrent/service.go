@@ -13,14 +13,13 @@ import (
 	"io/ioutil"
 	"math/rand"
 	"encoding/hex"
-	"encoding/json"
 	"path/filepath"
 
-	"github.com/boltdb/bolt"
 	"github.com/op/go-logging"
 	"github.com/dustin/go-humanize"
 	"github.com/scakemyer/libtorrent-go"
 	"github.com/scakemyer/quasar/broadcast"
+	"github.com/scakemyer/quasar/database"
 	"github.com/scakemyer/quasar/diskusage"
 	"github.com/scakemyer/quasar/config"
 	"github.com/scakemyer/quasar/tmdb"
@@ -30,7 +29,6 @@ import (
 )
 
 const (
-	Bucket                  = "BitTorrent"
 	libtorrentAlertWaitTime = 1 // 1 second
 )
 
@@ -80,6 +78,11 @@ var StatusStrings = []string{
 	"Stalled",
 }
 
+var (
+	db *database.Database
+	Bucket = database.BitTorrentBucket
+)
+
 const (
 	ProxyTypeNone = iota
 	ProxyTypeSocks4
@@ -127,7 +130,6 @@ type BTConfiguration struct {
 }
 
 type BTService struct {
-	db                *bolt.DB
 	Session           libtorrent.Session
 	config            *BTConfiguration
 	log               *logging.Logger
@@ -169,9 +171,12 @@ type activeTorrent struct {
 	progress     int
 }
 
-func NewBTService(conf BTConfiguration, db *bolt.DB) *BTService {
+func InitDB() {
+	db, _ = database.NewDB()
+}
+
+func NewBTService(conf BTConfiguration) *BTService {
 	s := &BTService{
-		db:                db,
 		log:               logging.MustGetLogger("btservice"),
 		libtorrentLog:     logging.MustGetLogger("libtorrent"),
 		alertsBroadcaster: broadcast.NewBroadcaster(),
@@ -186,16 +191,6 @@ func NewBTService(conf BTConfiguration, db *bolt.DB) *BTService {
 			s.log.Error("Unable to create Torrents folder")
 		}
 	}
-
-	s.db.Update(func(tx *bolt.Tx) error {
-		_, err := tx.CreateBucketIfNotExists([]byte(Bucket))
-		if err != nil {
-			s.log.Error(err)
-			xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
-			return err
-		}
-		return nil
-	})
 
 	s.configure()
 	s.startServices()
@@ -820,16 +815,14 @@ func (s *BTService) downloadProgress() {
 					continue
 				}
 
-				s.db.View(func(tx *bolt.Tx) error {
-					b := tx.Bucket([]byte(Bucket))
-					v := b.Get([]byte(infoHash))
-					var item *DBItem
-					errMsg := fmt.Sprintf("Missing item type to move files to completed folder for %s", torrentName)
-					if err := json.Unmarshal(v, &item); err != nil {
-						s.log.Warning(errMsg)
+				item := &DBItem{}
+				func() error {
+					if err := db.GetObject(Bucket, infoHash, item); err != nil {
 						warnedMissing[infoHash] = true
 						return err
 					}
+
+					errMsg := fmt.Sprintf("Missing item type to move files to completed folder for %s", torrentName)
 					if item.Type == "" {
 						s.log.Error(errMsg)
 						return errors.New(errMsg)
@@ -958,7 +951,7 @@ func (s *BTService) downloadProgress() {
 						}()
 					}
 					return nil
-				})
+				}()
 			}
 
 			totalActive := len(activeTorrents)
@@ -993,66 +986,40 @@ func (s *BTService) downloadProgress() {
 //
 // Database updates
 //
-func (s *BTService) UpdateDB(Operation int, InfoHash string, ID int, Type string, infos ...int) (err error) {
+func (s *BTService) UpdateDB(Operation int, InfoHash string, ID int, Type string, infos ...int) error {
 	switch Operation {
 	case Delete:
-		err = s.db.Update(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte(Bucket))
-			if err := b.Delete([]byte(InfoHash)); err != nil {
-				return err
-			}
-			return nil
-		})
+		return db.Delete(Bucket, InfoHash)
 	case Update:
-		err = s.db.Update(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte(Bucket))
-			item := DBItem{
-				State:   Active,
-				ID:      ID,
-				Type:    Type,
-				File:    infos[0],
-				ShowID:  infos[1],
-				Season:  infos[2],
-				Episode: infos[3],
-			}
-			if buf, err := json.Marshal(item); err != nil {
-				return err
-			} else if err := b.Put([]byte(InfoHash), buf); err != nil {
-				return err
-			}
-			return nil
-		})
+		item := DBItem{
+			State:   Active,
+			ID:      ID,
+			Type:    Type,
+			File:    infos[0],
+			ShowID:  infos[1],
+			Season:  infos[2],
+			Episode: infos[3],
+		}
+		return db.SetObject(Bucket, InfoHash, item)
 	case RemoveFromLibrary:
-		err = s.db.Update(func(tx *bolt.Tx) error {
-			b := tx.Bucket([]byte(Bucket))
-			v := b.Get([]byte(InfoHash))
-			var item *DBItem
-			if err := json.Unmarshal(v, &item); err != nil {
-				s.log.Error(err)
-				return err
-			}
-			item.State = Remove
-			if buf, err := json.Marshal(item); err != nil {
-				return err
-			} else if err := b.Put([]byte(InfoHash), buf); err != nil {
-				return err
-			}
-			return nil
-		})
+		item := &DBItem{}
+		if err := db.GetObject(Bucket, InfoHash, item); err != nil {
+			s.log.Error(err)
+			return err
+		}
+
+		item.State = Remove
+		return db.SetObject(Bucket, InfoHash, item)
 	}
-	return err
+
+	return nil
 }
 
 func (s *BTService) GetDBItem(infoHash string) (dbItem *DBItem) {
-	s.db.View(func(tx *bolt.Tx) error {
-		b := tx.Bucket([]byte(Bucket))
-		v := b.Get([]byte(infoHash))
-		if err := json.Unmarshal(v, &dbItem); err != nil {
-			return err
-		}
+	if err := db.GetObject(Bucket, infoHash, dbItem); err != nil {
 		return nil
-	})
-	return
+	}
+	return dbItem
 }
 
 func (s *BTService) alertsConsumer() {
