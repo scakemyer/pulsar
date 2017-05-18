@@ -26,8 +26,8 @@ type Configuration struct {
 	ProfilePath         string
 	SpoofUserAgent      int
 	BackgroundHandling  bool
-	KeepFilesAfterStop  bool
-	KeepFilesAsk        bool
+	KeepFilesPlaying    int
+	KeepFilesFinished   int
 	DisableBgProgress   bool
 	ResultsPerPage      int
 	EnableOverlayStatus bool
@@ -205,8 +205,8 @@ func Reload() *Configuration {
 		SpoofUserAgent:      settings["spoof_user_agent"].(int),
 		LimitAfterBuffering: settings["limit_after_buffering"].(bool),
 		BackgroundHandling:  settings["background_handling"].(bool),
-		KeepFilesAfterStop:  settings["keep_files"].(bool),
-		KeepFilesAsk:        settings["keep_files_ask"].(bool),
+		KeepFilesPlaying:    settings["keep_files_playing"].(int),
+		KeepFilesFinished:   settings["keep_files_finished"].(int),
 		DisableBgProgress:   settings["disable_bg_progress"].(bool),
 		ResultsPerPage:      settings["results_per_page"].(int),
 		EnableOverlayStatus: settings["enable_overlay_status"].(bool),
@@ -292,7 +292,7 @@ func IsWritablePath(path string) error {
 		if err != nil {
 			return err
 		}
-	    return errors.New(fmt.Sprintf("%s is not a valid directory", path))
+	  return errors.New(fmt.Sprintf("%s is not a valid directory", path))
 	}
 	writableFile := filepath.Join(path, ".writable")
 	if writable, err := os.Create(writableFile); err != nil {

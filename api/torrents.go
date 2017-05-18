@@ -561,14 +561,17 @@ func RemoveTorrent(btService *bittorrent.BTService) gin.HandlerFunc {
 		btService.UpdateDB(bittorrent.Delete, infoHash, 0, "")
 		torrentsLog.Infof("Removed %s from database", infoHash)
 
-		askedToDelete := false
-		if config.Get().KeepFilesAsk == true && deleteFiles == "" {
+		keepSetting := config.Get().KeepFilesFinished
+		deleteAnswer := false
+		if keepSetting == 1 && deleteFiles == "" {
 			if xbmc.DialogConfirm("Quasar", "LOCALIZE[30269]") {
-				askedToDelete = true
+				deleteAnswer = true
 			}
+		} else if keepSetting == 2 {
+			deleteAnswer = true
 		}
 
-		if config.Get().KeepFilesAfterStop == false || askedToDelete == true || deleteFiles == "true" {
+		if deleteAnswer == true || deleteFiles == "true" {
 			torrentsLog.Info("Removing the torrent and deleting files...")
 			btService.Session.GetHandle().RemoveTorrent(torrentHandle, int(libtorrent.SessionHandleDeleteFiles))
 			partsFile := filepath.Join(config.Get().DownloadPath, fmt.Sprintf(".%s.parts", infoHash))
