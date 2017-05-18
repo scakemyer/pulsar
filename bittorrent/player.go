@@ -63,7 +63,8 @@ type BTPlayer struct {
 	episode                  int
 	scrobble                 bool
 	deleteAfter              bool
-	askToDelete              bool
+	keepFilesPlaying         int
+	keepFilesFinished        int
 	askToKeepDownloading     bool
 	overlayStatusEnabled     bool
 	torrentHandle            libtorrent.TorrentHandle
@@ -123,8 +124,8 @@ func NewBTPlayer(bts *BTService, params BTPlayerParams) *BTPlayer {
 		fileName:             "",
 		overlayStatusEnabled: config.Get().EnableOverlayStatus == true,
 		askToKeepDownloading: config.Get().BackgroundHandling == false,
-		deleteAfter:          config.Get().KeepFilesAfterStop == false,
-		askToDelete:          config.Get().KeepFilesAsk == true,
+		keepFilesPlaying:     config.Get().KeepFilesPlaying,
+		keepFilesFinished:    config.Get().KeepFilesFinished,
 		scrobble:             config.Get().Scrobble == true && params.TMDBId > 0 && config.Get().TraktToken != "",
 		contentType:          params.ContentType,
 		tmdbId:               params.TMDBId,
@@ -658,21 +659,29 @@ func (btp *BTPlayer) onStateChanged(stateAlert libtorrent.StateChangedAlert) {
 func (btp *BTPlayer) Close() {
 	close(btp.closing)
 
-	askedToKeepDownloading := true
-	if btp.askToKeepDownloading == true {
-		if !xbmc.DialogConfirm("Quasar", "LOCALIZE[30146]") {
-			askedToKeepDownloading = false
+	isWatched := btp.IsWatched()
+	keepDownloading := false
+	if !isWatched && btp.askToKeepDownloading == true {
+		if xbmc.DialogConfirm("Quasar", "LOCALIZE[30146]") {
+ 			keepDownloading = true
 		}
 	}
 
-	askedToDelete := false
-	if btp.askToDelete == true && (btp.askToKeepDownloading == false || askedToKeepDownloading == false) {
+	keepSetting := 1
+	if isWatched {
+		keepSetting = btp.keepFilesFinished
+	} else {
+		keepSetting = btp.keepFilesPlaying
+	}
+
+	deleteAnswer := false
+	if keepSetting == 1 && keepDownloading == false {
 		if xbmc.DialogConfirm("Quasar", "LOCALIZE[30269]") {
-			askedToDelete = true
+			deleteAnswer = true
 		}
 	}
 
-	if askedToKeepDownloading == false || askedToDelete == true || btp.notEnoughSpace {
+	if keepDownloading == false || deleteAnswer == true || btp.notEnoughSpace {
 		// Delete torrent file
 		if _, err := os.Stat(btp.torrentFile); err == nil {
 			btp.log.Infof("Deleting torrent file at %s", btp.torrentFile)
@@ -689,7 +698,7 @@ func (btp *BTPlayer) Close() {
 		btp.bts.UpdateDB(Delete, infoHash, 0, "")
 		btp.log.Infof("Removed %s from database", infoHash)
 
-		if btp.deleteAfter || askedToDelete == true || btp.notEnoughSpace {
+		if btp.deleteAfter || deleteAnswer == true || btp.notEnoughSpace {
 			btp.log.Info("Removing the torrent and deleting files...")
 			btp.bts.Session.GetHandle().RemoveTorrent(btp.torrentHandle, int(libtorrent.SessionHandleDeleteFiles))
 			defer os.Remove(btp.partsFile)
@@ -1020,4 +1029,8 @@ playbackLoop:
 
 	btp.overlayStatus.Close()
 	btp.setRateLimiting(false)
+}
+
+func (btp *BTPlayer) IsWatched() bool {
+	return (WatchedTime / VideoDuration * 100) > 90
 }
