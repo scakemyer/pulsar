@@ -191,6 +191,15 @@ func Reload() *Configuration {
 		}
 	}
 
+	defer func() {
+		if r := recover(); r != nil {
+			log.Debug("Addon settings not properly set, opening settings window")
+			xbmc.Dialog("Quasar", "LOCALIZE[30309]")
+			xbmc.AddonSettings("plugin.video.quasar")
+			os.Exit(0)
+	 	}
+	}()
+
 	newConfig := Configuration{
 		DownloadPath:        downloadPath,
 		LibraryPath:         libraryPath,
