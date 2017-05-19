@@ -14,6 +14,7 @@ import (
 	"github.com/scakemyer/quasar/cache"
 	"github.com/scakemyer/quasar/tmdb"
 	"github.com/scakemyer/quasar/xbmc"
+	"github.com/scakemyer/quasar/youtube"
 )
 
 // Fill fanart from TMDB
@@ -441,7 +442,7 @@ func CalendarMovies(endPoint string, page string) (movies []*CalendarMovie, tota
 }
 
 func (movie *Movie) ToListItem() *xbmc.ListItem {
-	return &xbmc.ListItem{
+	item := &xbmc.ListItem{
 		Label: movie.Title,
 		Info: &xbmc.ListItemInfo{
 			Count:         rand.Int(),
@@ -469,4 +470,12 @@ func (movie *Movie) ToListItem() *xbmc.ListItem {
 			Thumbnail: movie.Images.Thumbnail.Full,
 		},
 	}
+
+	if len(item.Info.Trailer) > 0 {
+		if id, err := youtube.GetVideoID(item.Info.Trailer); err == nil {
+			item.Info.Trailer = youtube.GetVideoURL(id)
+		}
+	}
+
+	return item
 }

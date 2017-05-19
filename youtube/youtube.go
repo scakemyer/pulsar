@@ -8,6 +8,8 @@ import (
 	"net/url"
 	"regexp"
 	"strings"
+
+	"github.com/scakemyer/quasar/util"
 )
 
 const (
@@ -34,6 +36,31 @@ type YTSearchItems struct {
     		VideoID string `json:"videoId"`
     	} `json:"id"`
     } `json:"items"`
+}
+
+func GetVideoID(url string) (videoId string, err error) {
+	if strings.Contains(url, "youtu") {
+		re_list := []*regexp.Regexp{
+			regexp.MustCompile(`(?:v|embed|watch\?v)(?:=|/)([^"&?/=%]{11})`),
+			regexp.MustCompile(`(?:=|/)([^"&?/=%]{11})`),
+			regexp.MustCompile(`([^"&?/=%]{11})`),
+		}
+
+		for _, re := range re_list {
+			if is_match := re.MatchString(url); is_match {
+				subs := re.FindStringSubmatch(url)
+				videoId = subs[1]
+				return
+			}
+		}
+	}
+
+	return "", fmt.Errorf("ID not found")
+}
+
+func GetVideoURL(id string) string {
+	u, _ := url.Parse("/youtube/" + id)
+	return util.GetHTTPHost() + u.String()
 }
 
 func Search(name string) (string, error){
