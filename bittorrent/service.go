@@ -152,7 +152,8 @@ type DBItem struct {
 }
 
 type PlayingItem struct {
-	DBItem      *DBItem
+	DBID        int
+	DBTYPE      string
 	WatchedTime float64
 	Duration    float64
 }

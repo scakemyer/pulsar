@@ -135,10 +135,10 @@ type VideoLibraryMovieItem struct {
 
 type VideoLibraryShows struct {
 	Shows []*struct {
-		ID         int    `json:"tvshowid"`
-		Title      string `json:"label"`
-		ScraperID  string `json:"imdbnumber"`
-		Episodes   int    `json:"episode"`
+		ID        int    `json:"tvshowid"`
+		Title     string `json:"label"`
+		ScraperID string `json:"imdbnumber"`
+		Episodes  int    `json:"episode"`
 	} `json:"tvshows"`
 }
 
@@ -151,15 +151,15 @@ type VideoLibraryEpisode struct {
 }
 
 type VideoLibraryEpisodeItem struct {
-	ID         int       `json:"episodeid"`
-	Title      string    `json:"label"`
-	Season     int       `json:"season"`
-	Episode    int       `json:"episode"`
-	TVShowID   int       `json:"tvshowid"`
-	PlayCount  int       `json:"playcount"`
-	File       string    `json:"file"`
-	UniqueIDs  UniqueIDs `json:"uniqueid"`
-	Resume     *Resume
+	ID        int       `json:"episodeid"`
+	Title     string    `json:"label"`
+	Season    int       `json:"season"`
+	Episode   int       `json:"episode"`
+	TVShowID  int       `json:"tvshowid"`
+	PlayCount int       `json:"playcount"`
+	File      string    `json:"file"`
+	UniqueIDs UniqueIDs `json:"uniqueid"`
+	Resume    *Resume
 }
 
 type UniqueIDs struct {
@@ -169,6 +169,18 @@ type UniqueIDs struct {
 type Resume struct {
 	Position float64 `json:"position"`
 	Total    float64 `json:"total"`
+}
+
+type PlayerItemInfo struct {
+	Info struct {
+		Id   int    `json:"id"`
+		Type string `json:"type"`
+	} `json:"item"`
+}
+
+type ActivePlayers []struct {
+	Id   int    `json:"playerid"`
+	Type string `json:"type"`
 }
 
 func NewView(contentType string, items ListItems) *View {

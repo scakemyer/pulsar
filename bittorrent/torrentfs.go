@@ -7,7 +7,6 @@ import (
 	"errors"
 	"unsafe"
 	"net/http"
-	"encoding/hex"
 	"path/filepath"
 
 	"github.com/op/go-logging"
@@ -41,8 +40,10 @@ type TorrentFile struct {
 	piecesLastUpdated  time.Time
 	lastStatus         libtorrent.TorrentStatus
 	removed            *broadcast.Broadcaster
+	closing 					 chan struct{}
 	libraryBroadcaster *broadcast.Broadcaster
-	dbItem             *DBItem
+	DBID               int
+	DBTYPE             string
 }
 
 func NewTorrentFS(service *BTService, path string) *TorrentFS {
@@ -101,10 +102,11 @@ func NewTorrentFile(file *os.File, tfs *TorrentFS, torrentHandle libtorrent.Torr
 		fileOffset:         fileOffset,
 		fileSize:           fileSize,
 		removed:            broadcast.NewBroadcaster(),
+		closing: 						make(chan struct{}),
 		libraryBroadcaster: broadcast.LocalBroadcasters[broadcast.WATCHED],
 	}
 	go tf.consumeAlerts()
-	tf.GetDBItem()
+	go tf.GetDBID()
 
 	tf.setSubtitles()
 
@@ -177,11 +179,35 @@ func (tf *TorrentFile) hasPiece(idx int) bool {
 	return tf.pieces.GetBit(idx)
 }
 
-func (tf *TorrentFile) GetDBItem() {
-	infoHash := hex.EncodeToString([]byte(tf.torrentInfo.InfoHash().ToString()))
-	if item := tf.tfs.service.GetDBItem(infoHash); item != nil {
-		tf.dbItem = item
-	}
+func (tf *TorrentFile) GetDBID() {
+	tries := 0
+	ticker := time.NewTicker(10 * time.Second)
+
+	go func() {
+		for {
+			select {
+			case <- ticker.C:
+				tries++
+				playerID := xbmc.PlayerGetActive()
+				if playerID == -1 {
+					continue
+				}
+
+				if item := xbmc.PlayerGetItem(playerID); item != nil {
+					tf.DBID = item.Info.Id
+					tf.DBTYPE = item.Info.Type
+
+					tf.closing <- struct{}{}
+				}
+				if tries == 10 {
+					tf.closing <- struct{}{}
+				}
+			case <- tf.closing:
+				ticker.Stop()
+				return
+			}
+		}
+	}()
 }
 
 func (tf *TorrentFile) Close() error {
@@ -189,10 +215,13 @@ func (tf *TorrentFile) Close() error {
 	tf.removed.Signal()
 
 	tf.libraryBroadcaster.Broadcast(&PlayingItem{
-		DBItem:      tf.dbItem,
+		DBID:        tf.DBID,
+		DBTYPE:      tf.DBTYPE,
 		WatchedTime: WatchedTime,
 		Duration:    VideoDuration,
 	})
+	tf.closing <- struct{}{}
+	close(tf.closing)
 
 	return tf.File.Close()
 }

@@ -166,30 +166,30 @@ func updateLibraryEpisodes(showId int) {
 //
 // Watched handling
 //
-func UpdateMovieWatched(item *xbmc.VideoLibraryMovieItem, watchedTime float64, videoDuration float64) {
+func UpdateMovieWatched(itemID int, watchedTime float64, videoDuration float64) {
 	progress := watchedTime / videoDuration * 100
 
-	libraryLog.Infof("Currently at %f%%, DBID: %d", progress, item.ID)
+	libraryLog.Infof("Currently at %f%%, DBID: %d", progress, itemID)
 
 	if progress > 90 {
-		xbmc.SetMovieWatched(item.ID, 1, 0, 0)
+		xbmc.SetMovieWatched(itemID, 1, 0, 0)
 	} else if watchedTime > 180 {
-		xbmc.SetMovieWatched(item.ID, 0, int(watchedTime), int(videoDuration))
+		xbmc.SetMovieWatched(itemID, 0, int(watchedTime), int(videoDuration))
 	} else {
 		time.Sleep(200 * time.Millisecond)
 		xbmc.Refresh()
 	}
 }
 
-func UpdateEpisodeWatched(item *xbmc.VideoLibraryEpisodeItem, watchedTime float64, videoDuration float64) {
+func UpdateEpisodeWatched(itemID int, watchedTime float64, videoDuration float64) {
 	progress := watchedTime / videoDuration * 100
 
-	libraryLog.Infof("Currently at %f%%, DBID: %d", progress, item.ID)
+	libraryLog.Infof("Currently at %f%%, DBID: %d", progress, itemID)
 
 	if progress > 90 {
-		xbmc.SetEpisodeWatched(item.ID, 1, 0, 0)
+		xbmc.SetEpisodeWatched(itemID, 1, 0, 0)
 	} else if watchedTime > 180 {
-		xbmc.SetEpisodeWatched(item.ID, 0, int(watchedTime), int(videoDuration))
+		xbmc.SetEpisodeWatched(itemID, 0, int(watchedTime), int(videoDuration))
 	} else {
 		time.Sleep(200 * time.Millisecond)
 		xbmc.Refresh()
@@ -220,28 +220,9 @@ func isDuplicateMovie(tmdbId string) (*tmdb.Movie, error) {
 
 func isDuplicateShow(tmdbId string) (*tmdb.Show, error) {
 	show := tmdb.GetShowById(tmdbId, "en")
-	if show == nil || show.ExternalIDs == nil {
-		return show, nil
-	}
-	var showId string
-	switch config.Get().TvScraper {
-	case TMDBScraper:
-		showId = tmdbId
-	case TVDBScraper:
-		if show.ExternalIDs == nil || show.ExternalIDs.TVDBID == nil {
-			libraryLog.Warningf("No external IDs for TVDB show from TMDB ID %s", tmdbId)
-			return show, nil
-		}
-		showId = strconv.Itoa(util.StrInterfaceToInt(show.ExternalIDs.TVDBID))
-	case TraktScraper:
-		traktShow := trakt.GetShowByTMDB(tmdbId)
-		if traktShow == nil || traktShow.IDs == nil || traktShow.IDs.Trakt == 0 {
-			libraryLog.Warningf("No external IDs from Trakt show for TMDB ID %s", tmdbId)
-			return show, nil
-		}
-		showId = strconv.Itoa(traktShow.IDs.Trakt)
-	}
-	if libraryShows == nil {
+	showId := GetShowUniqueID(show)
+
+	if len(showId) == 0 || libraryShows == nil {
 		return show, nil
 	}
 	for _, existingShow := range libraryShows.Shows {
@@ -1315,10 +1296,8 @@ func FindMovieInLibrary(movie *tmdb.Movie) *xbmc.VideoLibraryMovieItem {
 		return nil
 	}
 	for _, existingMovie := range libraryMovies.Movies {
-		if existingMovie.IMDBNumber != "" {
-			if existingMovie.IMDBNumber == movie.IMDBId {
-				return existingMovie
-			}
+		if existingMovie.IMDBNumber != "" && existingMovie.IMDBNumber == movie.IMDBId {
+			return existingMovie
 		}
 	}
 
@@ -1326,40 +1305,103 @@ func FindMovieInLibrary(movie *tmdb.Movie) *xbmc.VideoLibraryMovieItem {
 }
 
 func FindEpisodeInLibrary(show *tmdb.Show, episode *tmdb.Episode) *xbmc.VideoLibraryEpisodeItem {
-	noExternalIDs := fmt.Sprintf("No external IDs found for S%02dE%02d (%d)", episode.SeasonNumber, episode.EpisodeNumber, show.Id)
-	if episode == nil || episode.ExternalIDs == nil {
-		libraryLog.Warning(noExternalIDs)
+	if episode == nil || show == nil {
 		return nil
 	}
 
-	episodeId := strconv.Itoa(episode.Id)
+	episodeId := GetEpisodeUniqueID(show, episode)
+	if len(episodeId) > 0 {
+		for _, episodes := range libraryEpisodes {
+			if episodes == nil || episodes.Episodes == nil {
+				continue
+			}
+
+			for _, existingEpisode := range episodes.Episodes {
+				if existingEpisode.UniqueIDs.ID == episodeId {
+					return existingEpisode
+				}
+			}
+		}
+	}
+
+	showId := GetShowUniqueID(show)
+	if len(showId) > 0 {
+		for _, episodes := range libraryEpisodes {
+			if episodes == nil || episodes.Episodes == nil {
+				continue
+			}
+
+			for _, existingEpisode := range episodes.Episodes {
+				if strconv.Itoa(existingEpisode.TVShowID) == showId &&
+				 	 	existingEpisode.Season == episode.SeasonNumber &&
+					 	existingEpisode.Episode == episode.EpisodeNumber {
+					return existingEpisode
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+func GetShowUniqueID(show *tmdb.Show) (showId string) {
+	if show == nil || show.ExternalIDs == nil {
+		return
+	}
+
+	tmdbId := strconv.Itoa(show.Id)
+	switch config.Get().TvScraper {
+	case TMDBScraper:
+		showId = tmdbId
+	case TVDBScraper:
+		if show.ExternalIDs == nil || show.ExternalIDs.TVDBID == nil {
+			libraryLog.Warningf("No external IDs for TVDB show from TMDB ID %s", tmdbId)
+			return
+		}
+		showId = strconv.Itoa(util.StrInterfaceToInt(show.ExternalIDs.TVDBID))
+	case TraktScraper:
+		traktShow := trakt.GetShowByTMDB(tmdbId)
+		if traktShow == nil || traktShow.IDs == nil || traktShow.IDs.Trakt == 0 {
+			libraryLog.Warningf("No external IDs from Trakt show for TMDB ID %s", tmdbId)
+			return
+		}
+		showId = strconv.Itoa(traktShow.IDs.Trakt)
+	}
+
+	return
+}
+
+func GetEpisodeUniqueID(show *tmdb.Show, episode *tmdb.Episode) (episodeId string) {
+	noExternalIDs := fmt.Sprintf("No external IDs found for S%02dE%02d (%d)", episode.SeasonNumber, episode.EpisodeNumber, show.Id)
+	if episode == nil || episode.ExternalIDs == nil {
+		libraryLog.Warning(noExternalIDs)
+		return
+	}
+
+	episodeId = strconv.Itoa(episode.Id)
 	switch config.Get().TvScraper {
 	case TMDBScraper:
 		break
 	case TVDBScraper:
 		if episode.ExternalIDs == nil || episode.ExternalIDs.TVDBID == nil {
 			libraryLog.Warningf(noExternalIDs)
-			return nil
+			return
 		}
 		episodeId = strconv.Itoa(util.StrInterfaceToInt(episode.ExternalIDs.TVDBID))
 	case TraktScraper:
 		traktEpisode := trakt.GetEpisodeByTMDB(episodeId)
 		if traktEpisode == nil || traktEpisode.IDs == nil || traktEpisode.IDs.Trakt == 0 {
 			libraryLog.Warning(noExternalIDs + " from Trakt episode")
-			return nil
+			return
 		}
 		episodeId = strconv.Itoa(traktEpisode.IDs.Trakt)
 	}
 
-	for _, episodes := range libraryEpisodes {
-		for _, existingEpisode := range episodes.Episodes {
-			if existingEpisode.UniqueIDs.ID == episodeId {
-				return existingEpisode
-			}
-		}
+	if len(episodeId) == 0 {
+		libraryLog.Warning(noExternalIDs)
 	}
 
-	return nil
+	return
 }
 
 //
