@@ -37,12 +37,14 @@ var (
 var (
 	LibraryBucket     = []byte("Library")
 	BitTorrentBucket  = []byte("BitTorrent")
+	HistoryBucket     = []byte("History")
 	SearchCacheBucket = []byte("SearchCache")
 )
 
 var Buckets = [][]byte {
 	LibraryBucket,
 	BitTorrentBucket,
+	HistoryBucket,
 	SearchCacheBucket,
 }
 
@@ -300,6 +302,10 @@ func (database *Database) GetObject(bucket []byte, key string, item interface{})
 		return err
 	}
 
+	if len(v) == 0 {
+		return
+	}
+	
 	if err = json.Unmarshal(v, &item); err != nil {
 		databaseLog.Warningf("Could not unmarshal object for key: '%s', in bucket '%s': %s", key, bucket, err)
 		return err
