@@ -502,6 +502,51 @@ func CalendarShows(endPoint string, page string) (shows []*CalendarShow, total i
 	return
 }
 
+func WatchedShows() (shows []*Shows, err error) {
+	if err := Authorized(); err != nil {
+		return shows, err
+	}
+
+	endPoint := "sync/watched/shows"
+
+	params := napping.Params{
+		"extended": "noseasons",
+	}.AsUrlValues()
+
+	cacheStore := cache.NewFileStore(path.Join(config.Get().ProfilePath, "cache"))
+	key := "com.trakt.shows.watched"
+	if err := cacheStore.Get(key, &shows); err != nil {
+		resp, err := GetWithAuth(endPoint, params)
+
+		if err != nil {
+			return shows, err
+		} else if resp.Status() != 200 {
+			log.Error(err)
+			return shows, errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
+		}
+
+		var watchedShows []*WatchedShow
+		if err := resp.Unmarshal(&watchedShows); err != nil {
+			log.Warning(err)
+		}
+
+		showListing := make([]*Shows, 0)
+		for _, show := range watchedShows {
+			showItem := Shows{
+				Show: show.Show,
+			}
+			showListing = append(showListing, &showItem)
+		}
+		shows = showListing
+
+		shows = setShowsFanart(shows)
+
+		cacheStore.Set(key, shows, 1 * time.Minute)
+	}
+
+	return
+}
+
 func (show *Show) ToListItem() *xbmc.ListItem {
 	return &xbmc.ListItem{
 		Label: show.Title,
