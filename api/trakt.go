@@ -720,6 +720,14 @@ func TraktAllReleases(ctx *gin.Context) {
 	renderCalendarMovies(ctx, movies, total, page)
 }
 
+func TraktProgressShows(ctx *gin.Context) {
+	shows, err := trakt.ProgressShows()
+	if err != nil {
+		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+	}
+	renderTraktShows(ctx, shows, -1, 0)
+}
+
 func renderCalendarMovies(ctx *gin.Context, movies []*trakt.CalendarMovie, total int, page int) {
 	hasNextPage := 0
 	if page > 0 {
