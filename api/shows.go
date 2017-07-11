@@ -84,6 +84,7 @@ func TVTrakt(ctx *gin.Context) {
 		{Label: "LOCALIZE[30248]", Path: UrlForXBMC("/shows/trakt/watched"), Thumbnail: config.AddonResource("img", "most_watched.png")},
 		{Label: "LOCALIZE[30249]", Path: UrlForXBMC("/shows/trakt/collected"), Thumbnail: config.AddonResource("img", "most_collected.png")},
 		{Label: "LOCALIZE[30250]", Path: UrlForXBMC("/shows/trakt/anticipated"), Thumbnail: config.AddonResource("img", "most_anticipated.png")},
+		{Label: "PROGRESS", Path: UrlForXBMC("/shows/trakt/progress"), Thumbnail: config.AddonResource("img", "most_anticipated.png")},
 	}
 	ctx.JSON(200, xbmc.NewView("menus_tvshows", items))
 }
