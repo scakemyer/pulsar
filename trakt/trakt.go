@@ -167,6 +167,12 @@ type WatchlistEpisode struct {
 	Show     *Object  `json:"show"`
 }
 
+type WatchedShow struct {
+	Plays			int `json:"plays"`
+	LastWatchedAt	string `json:"last_watched_at"`
+	Show 			*Show `json:"show"`
+}
+
 type CollectionMovie struct {
 	CollectedAt string `json:"collected_at"`
 	Movie       *Movie `json:"movie"`
