@@ -173,6 +173,15 @@ type WatchedShow struct {
 	Show 			*Show `json:"show"`
 }
 
+type WatchedProgressShow struct {
+	Aired			int `json:"aired"`
+	Completed		int `json:"completed"`
+	LastWatchedAt	string `json:"last_watched_at"`
+	Seasons			[]*Season `json:"seasons"`
+	HiddenSeasons	[]*Season `json:"hidden_seasons"`
+	NextEpisode		Episode `json:"next_episode"`
+}
+
 type CollectionMovie struct {
 	CollectedAt string `json:"collected_at"`
 	Movie       *Movie `json:"movie"`
