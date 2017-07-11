@@ -547,6 +547,51 @@ func WatchedShows() (shows []*Shows, err error) {
 	return
 }
 
+func WatchedProgressShows() (episodes []*Episode, err error) {
+	if err := Authorized(); err != nil {
+		return episodes, err
+	}
+
+	params := napping.Params{
+		"hidden": "false",
+		"specials": "false",
+		"count_specials": "true",
+	}.AsUrlValues()
+
+	cacheStore := cache.NewFileStore(path.Join(config.Get().ProfilePath, "cache"))
+	key := "com.trakt.shows.watched.progress"
+	if err := cacheStore.Get(key, &shows); err != nil {
+		var watchedProgressShows []*WatchedProgressShow
+		episodeListing := make([]*Episode, 0)
+
+		watchedShows := WatchedShows()
+		for _, show := range watchedShows {
+			endPoint := fmt.Sprintf("shows/%s/progress/watched", show.Show.IDs.Slug)
+
+			resp, err := GetWithAuth(endPoint, params)
+			if err != nil {
+				return episodes, err
+			} else if resp.Status() != 200 {
+				log.Error(err)
+				return episodes, errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
+			}
+
+			var watchedProgressShow *WatchedProgressShow
+			if err := resp.Unmarshal(&watchedProgressShow); err != nil {
+				log.Warning(err)
+			}
+
+			episodeListing = append(episodeListing, &watchedProgressShow.NextEpisode)
+		}
+
+		episodes = episodeListing
+		episodes = setShowsFanart(episodes)
+		cacheStore.Set(key, episodes, 1 * time.Minute)
+	}	
+
+	return
+}
+
 func (show *Show) ToListItem() *xbmc.ListItem {
 	return &xbmc.ListItem{
 		Label: show.Title,
