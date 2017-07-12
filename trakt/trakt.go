@@ -168,18 +168,25 @@ type WatchlistEpisode struct {
 }
 
 type WatchedShow struct {
-	Plays			int `json:"plays"`
-	LastWatchedAt	string `json:"last_watched_at"`
-	Show 			*Show `json:"show"`
+	Plays			int		`json:"plays"`
+	LastWatchedAt	string	`json:"last_watched_at"`
+	Show 			*Show	`json:"show"`
 }
 
 type WatchedProgressShow struct {
-	Aired			int `json:"aired"`
-	Completed		int `json:"completed"`
-	LastWatchedAt	string `json:"last_watched_at"`
-	Seasons			[]*Season `json:"seasons"`
-	HiddenSeasons	[]*Season `json:"hidden_seasons"`
-	NextEpisode		Episode `json:"next_episode"`
+	Aired			int			`json:"aired"`
+	Completed		int			`json:"completed"`
+	LastWatchedAt	string		`json:"last_watched_at"`
+	Seasons			[]*Season	`json:"seasons"`
+	HiddenSeasons	[]*Season	`json:"hidden_seasons"`
+	NextEpisode		Episode		`json:"next_episode"`
+	Show			*Show		`json:"show"`
+}
+
+type ProgressShow struct {
+	FirstAired  string   `json:"first_aired"`
+	Episode     *Episode `json:"episode"`
+	Show        *Show    `json:"show"`
 }
 
 type CollectionMovie struct {
