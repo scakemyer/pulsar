@@ -141,6 +141,7 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 			trakt.GET("/watched", cache.Cache(store, DefaultCacheExpiration), TraktMostWatchedShows)
 			trakt.GET("/collected", cache.Cache(store, DefaultCacheExpiration), TraktMostCollectedShows)
 			trakt.GET("/anticipated", cache.Cache(store, DefaultCacheExpiration), TraktMostAnticipatedShows)
+			trakt.GET("/history", cache.Cache(store, DefaultCacheExpiration), TraktHistoryShows)
 			trakt.GET("/progress", cache.Cache(store, DefaultCacheExpiration), TraktProgressShows)
 
 			lists := trakt.Group("/lists")
