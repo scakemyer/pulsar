@@ -575,7 +575,6 @@ func WatchedProgressShows() (shows []*ProgressShow, err error) {
 			return shows, err
 		}
 		for _, show := range watchedShows {
-			log.Error("Looping the show: ", show.Show.IDs.Slug)
 			endPoint := fmt.Sprintf("shows/%s/progress/watched", show.Show.IDs.Slug)
 
 			resp, err := GetWithAuth(endPoint, params)
@@ -586,23 +585,23 @@ func WatchedProgressShows() (shows []*ProgressShow, err error) {
 				log.Error(err)
 				return shows, errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
 			}
-			log.Error("Respuesta del api de trakt : ", resp)
 			var watchedProgressShow *WatchedProgressShow
 			if err := resp.Unmarshal(&watchedProgressShow); err != nil {
 				log.Warning(err)
 			}
 			
-			showItem := ProgressShow{
-				Show: watchedProgressShow.Show,
-				FirstAired: watchedProgressShow.NextEpisode.FirstAired,
-				Episode: &watchedProgressShow.NextEpisode,
-			}
+			if watchedProgressShow.NextEpisode.Number != 0 && watchedProgressShow.NextEpisode.Season != 0 {
+				showItem := ProgressShow{
+					Show: show.Show,
+					Episode: &watchedProgressShow.NextEpisode,
+				}
 
-			showListing = append(showListing, &showItem)
+				showListing = append(showListing, &showItem)
+			}
 		}
 
 		shows = showListing
-		//shows = setProgressShowsFanart(shows)
+		shows = setProgressShowsFanart(shows)
 		cacheStore.Set(key, shows, recentExpiration)
 	}	
 
