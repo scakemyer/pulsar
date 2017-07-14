@@ -180,11 +180,9 @@ type WatchedProgressShow struct {
 	Seasons			[]*Season	`json:"seasons"`
 	HiddenSeasons	[]*Season	`json:"hidden_seasons"`
 	NextEpisode		Episode		`json:"next_episode"`
-	Show			*Show		`json:"show"`
 }
 
 type ProgressShow struct {
-	FirstAired  string   `json:"first_aired"`
 	Episode     *Episode `json:"episode"`
 	Show        *Show    `json:"show"`
 }
