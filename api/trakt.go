@@ -947,50 +947,55 @@ func renderProgressShows(ctx *gin.Context, shows []*trakt.ProgressShow, total in
 		if showListing == nil {
 			continue
 		}
+		
 		show := showListing.Show
-		if show == nil {
+		episode := showListing.Episode
+		if show == nil || episode == nil{
 			continue
 		}
 		item := show.ToListItem()
-		episode := showListing.Episode
-		label := fmt.Sprintf("%s - %s | %dx%02d %s", []byte(showListing.FirstAired)[:10], item.Label, episode.Season, episode.Number, episode.Title)
-		item.Label = label
-		item.Info.Title = label
 
-		itemPath := UrlQuery(UrlForXBMC("/search"), "q", fmt.Sprintf("%s S%02dE%02d", show.Title, episode.Season, episode.Number))
-		if episode.Season > 100 {
-			itemPath = UrlQuery(UrlForXBMC("/search"), "q", fmt.Sprintf("%s %d %d", show.Title, episode.Number, episode.Season))
-		}
-		item.Path = itemPath
+		playLabel := "LOCALIZE[30023]"
+		playURL := UrlForXBMC("/show/%d/season/%d/episode/%d/play",
+			show.IDs.TMDB,
+			episode.Season,
+			episode.Number,
+		)
+		linksLabel := "LOCALIZE[30202]"
+		linksURL := UrlForXBMC("/show/%d/season/%d/episode/%d/links",
+			show.IDs.TMDB,
+			episode.Season,
+			episode.Number,
+		)
 
-		tmdbId := strconv.Itoa(show.IDs.TMDB)
-		libraryAction := []string{"LOCALIZE[30252]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/library/show/add/%d", show.IDs.TMDB))}
-		if _, err := isDuplicateShow(tmdbId); err != nil || isAddedToLibrary(tmdbId, Show) {
-			libraryAction = []string{"LOCALIZE[30253]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/library/show/remove/%d", show.IDs.TMDB))}
-		}
-		mergeAction := []string{"LOCALIZE[30283]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/library/show/add/%d?merge=true", show.IDs.TMDB))}
-
-		watchlistAction := []string{"LOCALIZE[30255]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/show/%d/watchlist/add", show.IDs.TMDB))}
-		if inShowsWatchlist(show.IDs.TMDB) {
-			watchlistAction = []string{"LOCALIZE[30256]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/show/%d/watchlist/remove", show.IDs.TMDB))}
-		}
-
-		collectionAction := []string{"LOCALIZE[30258]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/show/%d/collection/add", show.IDs.TMDB))}
-		if inShowsCollection(show.IDs.TMDB) {
-			collectionAction = []string{"LOCALIZE[30259]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/show/%d/collection/remove", show.IDs.TMDB))}
+		defaultURL := linksURL
+		contextLabel := playLabel
+		contextURL := playURL
+		if config.Get().ChooseStreamAuto == true {
+			defaultURL = playURL
+			contextLabel = linksLabel
+			contextURL = linksURL
 		}
 
-		item.ContextMenu = [][]string{
-			libraryAction,
-			mergeAction,
-			watchlistAction,
-			collectionAction,
-			[]string{"LOCALIZE[30203]", "XBMC.Action(Info)"},
-			[]string{"LOCALIZE[30268]", "XBMC.Action(ToggleWatched)"},
-			[]string{"LOCALIZE[30035]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/setviewmode/tvshows"))},
+		item.Path = defaultURL
+
+		if config.Get().Platform.Kodi < 17 {
+			item.ContextMenu = [][]string{
+				[]string{contextLabel, fmt.Sprintf("XBMC.PlayMedia(%s)", contextURL)},
+				[]string{"LOCALIZE[30203]", "XBMC.Action(Info)"},
+				[]string{"LOCALIZE[30268]", "XBMC.Action(ToggleWatched)"},
+				[]string{"LOCALIZE[30037]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/setviewmode/episodes"))},
+			}
+		} else {
+			item.ContextMenu = [][]string{
+				[]string{contextLabel, fmt.Sprintf("XBMC.PlayMedia(%s)", contextURL)},
+				[]string{"LOCALIZE[30037]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/setviewmode/episodes"))},
+			}
 		}
 		item.IsPlayable = true
-
+		label := fmt.Sprintf("%s | %dx%02d %s", item.Label, episode.Season, episode.Number, episode.Title)
+		item.Label = label
+		item.Info.Title = label
 		items = append(items, item)
 	}
 	if page >= 0 && hasNextPage > 0 {
