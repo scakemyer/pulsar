@@ -564,45 +564,40 @@ func WatchedProgressShows() (shows []*ProgressShow, err error) {
 		"count_specials": "true",
 	}.AsUrlValues()
 
-	cacheStore := cache.NewFileStore(path.Join(config.Get().ProfilePath, "cache"))
-	key := "com.trakt.shows.watched.progress"
-	if err := cacheStore.Get(key, &shows); err != nil {
-		showListing := make([]*ProgressShow, 0)
-		watchedShows, err := WatchedShows()
+	showListing := make([]*ProgressShow, 0)
+	watchedShows, err := WatchedShows()
+	if err != nil {
+		log.Error("Error getting the watchedShows")
+		return shows, err
+	}
+	for _, show := range watchedShows {
+		endPoint := fmt.Sprintf("shows/%s/progress/watched", show.Show.IDs.Slug)
+
+		resp, err := GetWithAuth(endPoint, params)
 		if err != nil {
-			log.Error("Error getting the watchedShows")
+			log.Error("Error getting endpoint ", endPoint, "for show ", show.Show.IDs.Slug)
 			return shows, err
+		} else if resp.Status() != 200 {
+			log.Error(err)
+			return shows, errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
 		}
-		for _, show := range watchedShows {
-			endPoint := fmt.Sprintf("shows/%s/progress/watched", show.Show.IDs.Slug)
-
-			resp, err := GetWithAuth(endPoint, params)
-			if err != nil {
-				log.Error("Error getting endpoint ", endPoint, "for show ", show.Show.IDs.Slug)
-				return shows, err
-			} else if resp.Status() != 200 {
-				log.Error(err)
-				return shows, errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
-			}
-			var watchedProgressShow *WatchedProgressShow
-			if err := resp.Unmarshal(&watchedProgressShow); err != nil {
-				log.Warning(err)
-			}
-			
-			if watchedProgressShow.NextEpisode.Number != 0 && watchedProgressShow.NextEpisode.Season != 0 {
-				showItem := ProgressShow{
-					Show: show.Show,
-					Episode: &watchedProgressShow.NextEpisode,
-				}
-
-				showListing = append(showListing, &showItem)
-			}
+		var watchedProgressShow *WatchedProgressShow
+		if err := resp.Unmarshal(&watchedProgressShow); err != nil {
+			log.Warning(err)
 		}
+		
+		if watchedProgressShow.NextEpisode.Number != 0 && watchedProgressShow.NextEpisode.Season != 0 {
+			showItem := ProgressShow{
+				Show: show.Show,
+				Episode: &watchedProgressShow.NextEpisode,
+			}
 
-		shows = showListing
-		shows = setProgressShowsFanart(shows)
-		cacheStore.Set(key, shows, 1 * time.Minute)
-	}	
+			showListing = append(showListing, &showItem)
+		}
+	}
+
+	shows = showListing
+	shows = setProgressShowsFanart(shows)
 
 	return
 }
