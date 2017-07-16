@@ -601,7 +601,7 @@ func WatchedProgressShows() (shows []*ProgressShow, err error) {
 
 		shows = showListing
 		shows = setProgressShowsFanart(shows)
-		cacheStore.Set(key, shows, recentExpiration)
+		cacheStore.Set(key, shows, 1 * time.Minute)
 	}	
 
 	return
