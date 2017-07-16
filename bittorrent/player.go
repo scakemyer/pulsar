@@ -697,6 +697,10 @@ func (btp *BTPlayer) Close() {
 			btp.log.Info("Removing the torrent without deleting files...")
 			btp.bts.Session.GetHandle().RemoveTorrent(btp.torrentHandle, 0)
 		}
+
+		if btp.contentType == "episode" {
+			trakt.AddToWatchedHistory(btp.tmdbId)
+		}
 	}
 }
 
