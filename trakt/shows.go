@@ -554,7 +554,6 @@ func WatchedShows() (shows []*Shows, err error) {
 }
 
 func WatchedProgressShows() (shows []*ProgressShow, err error) {
-	log.Error("I AM IN TRAKT WatchedProgressShows")
 	if err := Authorized(); err != nil {
 		return shows, err
 	}
