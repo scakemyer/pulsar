@@ -732,3 +732,23 @@ func Scrobble(action string, contentType string, tmdbId int, watched float64, ru
 		log.Errorf("Failed to scrobble %s #%d to %s at %f: %d", contentType, tmdbId, action, progress, resp.Status())
 	}
 }
+
+func AddToWatchedHistory(tmdbId int) {
+	if err := Authorized(); err != nil {
+		return
+	}
+
+	endPoint := "sync/history"
+	payload := fmt.Sprintf(`{"episodes": [{"watched_at": %s, "ids": {"tmdb": %d}}]}`, time.Now().Format("20060102-15:04:05.000"), tmdbId)
+	resp, err := Post(endPoint, bytes.NewBufferString(payload))
+	if err != nil {
+		log.Error(err.Error())
+		xbmc.Notify("Quasar", "AddToWatchedHistory failed, check your logs.", config.AddonIcon())
+	} else if resp.Status() != 201 {
+		log.Errorf("Failed to sync/history episodes tmdbId #%d", tmdbId)
+	}
+}
+
+
+
+
