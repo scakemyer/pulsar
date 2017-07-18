@@ -699,7 +699,7 @@ func (btp *BTPlayer) Close() {
 		}
 
 		if btp.contentType == "episode" {
-			trakt.AddToWatchedHistory(btp.tmdbId)
+			trakt.AddToWatchedHistory(btp.showId, btp.season, btp.episode)
 		}
 	}
 }
