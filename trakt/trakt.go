@@ -733,20 +733,39 @@ func Scrobble(action string, contentType string, tmdbId int, watched float64, ru
 	}
 }
 
-func AddToWatchedHistory(showId, season, episode int) {
+func AddEpisodeToWatchedHistory(showId, season, episode int) {
 	if err := Authorized(); err != nil {
 		return
 	}
 
 	endPoint := "sync/history"
-	payload := fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d}, "seasons": [{ "number": %d, "episodes": [{"watched_at": %s, "number": %d }]}]}]}`, showId, season, time.Now().Format("20060102-15:04:05.000"), episode)
-	log.Noticef("Calling endpoint: ", endpoint, "\npayload: ", payload)
+	payload := fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d}, "seasons": [{ "number": %d, "episodes": [{"watched_at": "%s", "number": %d }]}]}]}`, showId, season, time.Now().Format("20060102-15:04:05.000"), episode)
+	log.Noticef("Calling endpoint: ", endPoint, "\npayload: ", payload)
 	resp, err := Post(endPoint, bytes.NewBufferString(payload))
-	log.Noticef("resp: %s", string(resp))
+	log.Noticef(resp.RawText())
 	if err != nil {
 		log.Error(err.Error())
-		xbmc.Notify("Quasar", "AddToWatchedHistory failed, check your logs.", config.AddonIcon())
+		xbmc.Notify("Quasar", "AddEpisodeToWatchedHistory failed, check your logs.", config.AddonIcon())
 	} else if resp.Status() != 201 {
-		log.Errorf("Failed in AddToWatchedHistory to sync/history showId %d season %d episode %d", showId, season, episode)
+		log.Errorf("Failed in AddEpisodeToWatchedHistory to sync/history showId %d season %d episode %d", showId, season, episode)
 	}
 }
+
+func AddMovieToWatchedHistory(movie int) {
+	if err := Authorized(); err != nil {
+		return
+	}
+
+	endPoint := "sync/history"
+	payload := fmt.Sprintf(`{"movies": [{ "watched_at": "%s", "ids": {"tmdb": %d }}]}`, time.Now().Format("20060102-15:04:05.000"), movie)
+	log.Noticef("Calling endpoint: ", endPoint, "\npayload: ", payload)
+	resp, err := Post(endPoint, bytes.NewBufferString(payload))
+	log.Noticef(resp.RawText())
+	if err != nil {
+		log.Error(err.Error())
+		xbmc.Notify("Quasar", "AddMovieToWatchedHistory failed, check your logs.", config.AddonIcon())
+	} else if resp.Status() != 201 {
+		log.Errorf("Failed in AddMovieToWatchedHistory to sync/history movie %d", movie)
+	}
+}
+
