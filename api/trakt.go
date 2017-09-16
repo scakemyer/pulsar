@@ -720,6 +720,22 @@ func TraktAllReleases(ctx *gin.Context) {
 	renderCalendarMovies(ctx, movies, total, page)
 }
 
+func TraktHistoryShows(ctx *gin.Context) {
+	shows, err := trakt.WatchedShows()
+	if err != nil {
+		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+	}
+	renderTraktShows(ctx, shows, -1, 0)
+}
+
+func TraktProgressShows(ctx *gin.Context) {
+	shows, err := trakt.WatchedProgressShows()
+	if err != nil {
+		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+	}
+	renderProgressShows(ctx, shows, -1, 0)
+}
+
 func renderCalendarMovies(ctx *gin.Context, movies []*trakt.CalendarMovie, total int, page int) {
 	hasNextPage := 0
 	if page > 0 {
@@ -891,6 +907,95 @@ func renderCalendarShows(ctx *gin.Context, shows []*trakt.CalendarShow, total in
 		}
 		item.IsPlayable = true
 
+		items = append(items, item)
+	}
+	if page >= 0 && hasNextPage > 0 {
+		path := ctx.Request.URL.Path
+		nextpage := &xbmc.ListItem{
+			Label: "LOCALIZE[30218]",
+			Path: UrlForXBMC(fmt.Sprintf("%s?page=%d", path, page + 1)),
+			Thumbnail: config.AddonResource("img", "nextpage.png"),
+		}
+		items = append(items, nextpage)
+	}
+	ctx.JSON(200, xbmc.NewView("tvshows", items))
+}
+
+func renderProgressShows(ctx *gin.Context, shows []*trakt.ProgressShow, total int, page int) {
+	hasNextPage := 0
+	if page > 0 {
+		resultsPerPage := config.Get().ResultsPerPage
+
+		if total == -1 {
+			total = len(shows)
+		}
+		if total > resultsPerPage {
+			if page * resultsPerPage < total {
+				hasNextPage = 1
+			}
+		}
+
+		if len(shows) >= resultsPerPage {
+			start := (page - 1) % trakt.PagesAtOnce * resultsPerPage
+			shows = shows[start:start + resultsPerPage]
+		}
+	}
+
+	items := make(xbmc.ListItems, 0, len(shows) + hasNextPage)
+
+	for _, showListing := range shows {
+		if showListing == nil {
+			continue
+		}
+		
+		show := showListing.Show
+		episode := showListing.Episode
+		if show == nil || episode == nil{
+			continue
+		}
+		item := show.ToListItem()
+
+		playLabel := "LOCALIZE[30023]"
+		playURL := UrlForXBMC("/show/%d/season/%d/episode/%d/play",
+			show.IDs.TMDB,
+			episode.Season,
+			episode.Number,
+		)
+		linksLabel := "LOCALIZE[30202]"
+		linksURL := UrlForXBMC("/show/%d/season/%d/episode/%d/links",
+			show.IDs.TMDB,
+			episode.Season,
+			episode.Number,
+		)
+
+		defaultURL := linksURL
+		contextLabel := playLabel
+		contextURL := playURL
+		if config.Get().ChooseStreamAuto == true {
+			defaultURL = playURL
+			contextLabel = linksLabel
+			contextURL = linksURL
+		}
+
+		item.Path = defaultURL
+
+		if config.Get().Platform.Kodi < 17 {
+			item.ContextMenu = [][]string{
+				[]string{contextLabel, fmt.Sprintf("XBMC.PlayMedia(%s)", contextURL)},
+				[]string{"LOCALIZE[30203]", "XBMC.Action(Info)"},
+				[]string{"LOCALIZE[30268]", "XBMC.Action(ToggleWatched)"},
+				[]string{"LOCALIZE[30037]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/setviewmode/episodes"))},
+			}
+		} else {
+			item.ContextMenu = [][]string{
+				[]string{contextLabel, fmt.Sprintf("XBMC.PlayMedia(%s)", contextURL)},
+				[]string{"LOCALIZE[30037]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/setviewmode/episodes"))},
+			}
+		}
+		item.IsPlayable = true
+		label := fmt.Sprintf("%s | %dx%02d %s", item.Label, episode.Season, episode.Number, episode.Title)
+		item.Label = label
+		item.Info.Title = label
 		items = append(items, item)
 	}
 	if page >= 0 && hasNextPage > 0 {

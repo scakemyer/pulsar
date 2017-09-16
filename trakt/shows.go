@@ -4,7 +4,7 @@ import (
 	"fmt"
 	"path"
 	"time"
-  "errors"
+  	"errors"
 	"strconv"
 	"strings"
 	"math/rand"
@@ -74,6 +74,13 @@ func setShowsFanart(shows []*Shows) []*Shows {
 }
 
 func setCalendarShowsFanart(shows []*CalendarShow) []*CalendarShow {
+	for i, show := range shows {
+		shows[i].Show = setShowFanart(show.Show)
+	}
+	return shows
+}
+
+func setProgressShowsFanart(shows []*ProgressShow) []*ProgressShow {
 	for i, show := range shows {
 		shows[i].Show = setShowFanart(show.Show)
 	}
@@ -498,6 +505,99 @@ func CalendarShows(endPoint string, page string) (shows []*CalendarShow, total i
 			total = -1
 		}
 	}
+
+	return
+}
+
+func WatchedShows() (shows []*Shows, err error) {
+	if err := Authorized(); err != nil {
+		return shows, err
+	}
+
+	params := napping.Params{
+		"extended": "noseasons",
+	}.AsUrlValues()
+	endPoint := "sync/watched/shows"
+
+	cacheStore := cache.NewFileStore(path.Join(config.Get().ProfilePath, "cache"))
+	key := "com.trakt.shows.watched"
+	if err := cacheStore.Get(key, &shows); err != nil {
+		resp, err := GetWithAuth(endPoint, params)
+
+		if err != nil {
+			return shows, err
+		} else if resp.Status() != 200 {
+			log.Error(err)
+			return shows, errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
+		}
+
+		var watchedShows []*WatchedShow
+		if err := resp.Unmarshal(&watchedShows); err != nil {
+			log.Warning(err)
+		}
+
+		showListing := make([]*Shows, 0)
+		for _, show := range watchedShows {
+			showItem := Shows{
+				Show: show.Show,
+			}
+			showListing = append(showListing, &showItem)
+		}
+		shows = showListing
+
+		shows = setShowsFanart(shows)
+
+		cacheStore.Set(key, shows, recentExpiration)
+	}
+
+	return
+}
+
+func WatchedProgressShows() (shows []*ProgressShow, err error) {
+	if err := Authorized(); err != nil {
+		return shows, err
+	}
+
+	params := napping.Params{
+		"hidden": "false",
+		"specials": "false",
+		"count_specials": "true",
+	}.AsUrlValues()
+
+	showListing := make([]*ProgressShow, 0)
+	watchedShows, err := WatchedShows()
+	if err != nil {
+		log.Error("Error getting the watchedShows")
+		return shows, err
+	}
+	for _, show := range watchedShows {
+		endPoint := fmt.Sprintf("shows/%s/progress/watched", show.Show.IDs.Slug)
+
+		resp, err := GetWithAuth(endPoint, params)
+		if err != nil {
+			log.Error("Error getting endpoint ", endPoint, "for show ", show.Show.IDs.Slug)
+			return shows, err
+		} else if resp.Status() != 200 {
+			log.Error(err)
+			return shows, errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
+		}
+		var watchedProgressShow *WatchedProgressShow
+		if err := resp.Unmarshal(&watchedProgressShow); err != nil {
+			log.Warning(err)
+		}
+		
+		if watchedProgressShow.NextEpisode.Number != 0 && watchedProgressShow.NextEpisode.Season != 0 {
+			showItem := ProgressShow{
+				Show: show.Show,
+				Episode: &watchedProgressShow.NextEpisode,
+			}
+
+			showListing = append(showListing, &showItem)
+		}
+	}
+
+	shows = showListing
+	shows = setProgressShowsFanart(shows)
 
 	return
 }
