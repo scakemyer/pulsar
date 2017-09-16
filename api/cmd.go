@@ -2,7 +2,7 @@ package api
 
 import (
 	"github.com/gin-gonic/gin"
-	"github.com/op/go-logging"
+	logging "github.com/op/go-logging"
 	"github.com/scakemyer/quasar/cloudhole"
 	"github.com/scakemyer/quasar/config"
 	"github.com/scakemyer/quasar/xbmc"
@@ -30,7 +30,7 @@ func SetViewMode(ctx *gin.Context) {
 	viewMode := xbmc.GetCurrentView()
 	cmdLog.Noticef("ViewMode: %s (%s)", viewName, viewMode)
 	if viewMode != "0" {
-		xbmc.SetSetting("viewmode_" + content_type, viewMode)
+		xbmc.SetSetting("viewmode_"+content_type, viewMode)
 	}
 	ctx.String(200, "")
 }
