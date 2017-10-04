@@ -1,4 +1,4 @@
-Quasar daemon [![Build Status](https://travis-ci.org/charly3pins/quasar.svg?branch=master)](https://travis-ci.org/scakemyer/quasar)
+Quasar daemon [![Build Status](https://travis-ci.org/charly3pins/quasar.svg?branch=master)](https://travis-ci.org/charly3pins/quasar)
 ======
 
 Fork of the great [Quasar](https://github.com/scakemyer/quasar)
