@@ -1,7 +1,7 @@
-Quasar daemon [![Build Status](https://travis-ci.org/scakemyer/quasar.svg?branch=master)](https://travis-ci.org/scakemyer/quasar)
+Quasar daemon [![Build Status](https://travis-ci.org/charly3pins/quasar.svg?branch=master)](https://travis-ci.org/charly3pins/quasar)
 ======
 
-Fork of the great [Pulsar daemon](https://github.com/steeve/pulsar)
+Fork of the great [Quasar](https://github.com/scakemyer/quasar)
 
 1. Build the [cross-compiler](https://github.com/scakemyer/cross-compiler) and [libtorrent-go](https://github.com/scakemyer/libtorrent-go) images,
     or alternatively, pull the libtorrent-go images from [Docker Hub](https://hub.docker.com/r/quasarhq/libtorrent-go):
@@ -24,7 +24,7 @@ Fork of the great [Pulsar daemon](https://github.com/steeve/pulsar)
 3. go get
 
     ```
-    go get -d github.com/scakemyer/quasar
+    go get -d github.com/charly3pins/quasar
     ```
 
     For Windows support, but required for all builds, you also need:

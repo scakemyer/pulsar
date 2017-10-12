@@ -58,7 +58,7 @@ endif
 
 PROJECT = quasarhq
 NAME = quasar
-GO_PKG = github.com/scakemyer/quasar
+GO_PKG = github.com/charly3pins/quasar
 GO = go
 GIT = git
 DOCKER = docker
@@ -68,7 +68,7 @@ GIT_VERSION = $(shell $(GIT) describe --tags)
 CGO_ENABLED = 1
 OUTPUT_NAME = $(NAME)$(EXT)
 BUILD_PATH = build/$(TARGET_OS)_$(TARGET_ARCH)
-LIBTORRENT_GO = github.com/scakemyer/libtorrent-go
+LIBTORRENT_GO = github.com/charly3pins/libtorrent-go
 LIBTORRENT_GO_HOME = $(shell go env GOPATH)/src/$(LIBTORRENT_GO)
 GO_BUILD_TAGS =
 GO_LDFLAGS += -w -X $(GO_PKG)/util.Version="$(GIT_VERSION)"
@@ -176,7 +176,7 @@ libs: force
 
 binaries:
 	git config --global push.default simple
-	git clone --depth=1 https://github.com/scakemyer/quasar-binaries binaries
+	git clone --depth=1 https://github.com/charly3pins/quasar-binaries binaries
 	cp -Rf build/* binaries/
 	cd binaries && git add * && git commit -m "Update to ${GIT_VERSION}"
 

@@ -4,9 +4,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/scakemyer/quasar/xbmc"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/repository"
+	"github.com/charly3pins/quasar/xbmc"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/repository"
 )
 
 func Migrate() bool {

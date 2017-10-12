@@ -24,7 +24,7 @@ before_install:
 
 install:
   - go get -d ./...
-  - go get -d github.com/scakemyer/libtorrent-go
+  - go get -d github.com/charly3pins/libtorrent-go
 
 script:
   - go tool vet -unsafeptr=false .
