@@ -211,6 +211,38 @@ func TopMovies(topCategory string, page string) (movies []*Movies, total int, er
 	return
 }
 
+func WatchedMovies() (watchedMovies []*WatchedMovie, err error) {
+	if err := Authorized(); err != nil {
+		return watchedMovies, err
+	}
+
+	endPoint := "sync/watched/movies"
+
+	params := napping.Params{
+		"extended": "full,images",
+	}.AsUrlValues()
+
+	cacheStore := cache.NewFileStore(path.Join(config.Get().ProfilePath, "cache"))
+	key := "com.trakt.movies.watched"
+	if err := cacheStore.Get(key, &watchedMovies); err != nil {
+		resp, err := GetWithAuth(endPoint, params)
+
+		if err != nil {
+			return watchedMovies, err
+		} else if resp.Status() != 200 {
+			return watchedMovies, errors.New(fmt.Sprintf("Bad status getting Trakt watched movies: %d", resp.Status()))
+		}
+
+		if err := resp.Unmarshal(&watchedMovies); err != nil {
+			log.Warning(err)
+		}
+
+		cacheStore.Set(key, watchedMovies, userlistExpiration)
+	}
+
+	return
+}
+
 func WatchlistMovies() (movies []*Movies, err error) {
 	if err := Authorized(); err != nil {
 		return movies, err

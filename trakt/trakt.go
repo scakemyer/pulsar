@@ -167,19 +167,51 @@ type WatchlistEpisode struct {
 	Show     *Object  `json:"show"`
 }
 
+type WatchedMovie struct {
+	Plays	int	`json:"plays"`
+	LastWatchedAt	string	`json:"last_watched_at"`
+	Movie	*Movie	`json:"movie"`
+}
+
 type WatchedShow struct {
 	Plays			int		`json:"plays"`
 	LastWatchedAt	string	`json:"last_watched_at"`
 	Show 			*Show	`json:"show"`
+	Seasons	[]*WatchedSeason	`json:"seasons"`
+}
+
+type WatchedSeason struct {
+	Number	int	`json:"number"`
+	Episodes	[]*WatchedEpisode	`json:"episodes"`
+}
+
+type WatchedEpisode struct {
+	Number	int	`json:"number"`
+	Plays	int	`json:"plays"`
+	LastWatchedAt	string  `json:"last_watched_at"`
 }
 
 type WatchedProgressShow struct {
 	Aired			int			`json:"aired"`
 	Completed		int			`json:"completed"`
 	LastWatchedAt	string		`json:"last_watched_at"`
-	Seasons			[]*Season	`json:"seasons"`
+	Seasons			[]*WatchedProgressSeasons	`json:"seasons"`
 	HiddenSeasons	[]*Season	`json:"hidden_seasons"`
 	NextEpisode		Episode		`json:"next_episode"`
+	LastEpisode		Episode		`json:"last_episode"`
+}
+
+type WatchedProgressSeasons struct {
+	Number	int	`json:"number"`
+	Aired	int	`json:"aired"`
+	Completed	int	`json:"completed"`
+	Episodes	[]*WatchedProgressEpisodes	`json:"episodes"`
+}
+
+type WatchedProgressEpisodes struct {
+	Number	int	`json:"number"`
+	Completed	bool	`json:"completed"`
+	LastWatchedAt	string	`json:"last_watched_at"`
 }
 
 type ProgressShow struct {
@@ -707,6 +739,54 @@ func RemoveFromCollection(itemType string, tmdbId string) (resp *napping.Respons
 
 	endPoint := "sync/collection/remove"
 	return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"%s": [{"ids": {"tmdb": %s}}]}`, itemType, tmdbId)))
+}
+
+func AddEpisodeToWatchedHistory2(showId, season, episode int) (resp *napping.Response, err error) {
+	if err := Authorized(); err != nil {
+		return nil, err
+	}
+
+	endPoint := "sync/history"
+	if season == -1 {
+		return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d }}]}`, showId)))
+	} else if episode == -1 {
+		return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d}, "seasons": [{ "number": %d }]}]}`, showId, season)))
+	}
+
+	return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d}, "seasons": [{ "number": %d, "episodes": [{"watched_at": "%s", "number": %d }]}]}]}`, showId, season, time.Now().Format("20060102-15:04:05.000"), episode)))
+}
+
+func RemoveEpisodeFromWatchedHistory2(showId, season, episode int) (resp *napping.Response, err error) {
+	if err := Authorized(); err != nil {
+		return nil, err
+	}
+
+	endPoint := "sync/history/remove"
+	if season == -1 {
+		return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d }}]}`, showId)))
+	} else if episode == -1 {
+		return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d}, "seasons": [{ "number": %d }]}]}`, showId, season)))
+	}
+
+	return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d}, "seasons": [{ "number": %d, "episodes": [{"number": %d }]}]}]}`, showId, season, episode)))
+}
+
+func AddMovieToWatchedHistory2(movie int) (resp *napping.Response, err error) {
+	if err := Authorized(); err != nil {
+		return nil, err
+	}
+
+	endPoint := "sync/history"
+	return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"movies": [{ "watched_at": "%s", "ids": {"tmdb": %d }}]}`, time.Now().Format("20060102-15:04:05.000"), movie)))
+}
+
+func RemoveMovieFromWatchedHistory2(movie int) (resp *napping.Response, err error) {
+	if err := Authorized(); err != nil {
+		return nil, err
+	}
+
+	endPoint := "sync/history/remove"
+	return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"movies": [{ "ids": {"tmdb": %d }}]}`, movie)))
 }
 
 func Scrobble(action string, contentType string, tmdbId int, watched float64, runtime float64) {

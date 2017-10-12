@@ -699,13 +699,14 @@ func (btp *BTPlayer) Close() {
 			btp.bts.Session.GetHandle().RemoveTorrent(btp.torrentHandle, 0)
 		}
 
-		progress := WatchedTime / VideoDuration * 100
-		if progress >= 80 {
-			if btp.contentType == "episode" {
-				trakt.AddEpisodeToWatchedHistory(btp.showId, btp.season, btp.episode)
-			} else if btp.contentType == "movie" {
-				trakt.AddMovieToWatchedHistory(btp.tmdbId)
-			}
+	}
+
+	progress := WatchedTime / VideoDuration * 100
+	if progress >= 80 {
+		if btp.contentType == "episode" {
+			trakt.AddEpisodeToWatchedHistory(btp.showId, btp.season, btp.episode)
+		} else if btp.contentType == "movie" {
+			trakt.AddMovieToWatchedHistory(btp.tmdbId)
 		}
 	}
 }

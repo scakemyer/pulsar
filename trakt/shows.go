@@ -8,6 +8,7 @@ import (
 	"strconv"
 	"strings"
 	"math/rand"
+	"sync"
 
 	"github.com/jmcvetta/napping"
 	"github.com/scakemyer/quasar/config"
@@ -509,14 +510,45 @@ func CalendarShows(endPoint string, page string) (shows []*CalendarShow, total i
 	return
 }
 
+func WatchedEpisodes() (watchedShows []*WatchedShow, err error) {
+	if err := Authorized(); err != nil {
+		return watchedShows, err
+	}
+
+	params := napping.Params{}.AsUrlValues()
+
+	endPoint := "sync/watched/shows"
+
+	cacheStore := cache.NewFileStore(path.Join(config.Get().ProfilePath, "cache"))
+	key := "com.trakt.episodes.watched"
+	if err := cacheStore.Get(key, &watchedShows); err != nil {
+		resp, err := GetWithAuth(endPoint, params)
+
+		if err != nil {
+			return watchedShows, err
+		} else if resp.Status() != 200 {
+			log.Error(err)
+			return watchedShows, errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
+		}
+
+		if err := resp.Unmarshal(&watchedShows); err != nil {
+			log.Warning(err)
+		}
+
+		cacheStore.Set(key, watchedShows, recentExpiration)
+	}
+
+	return
+}
 func WatchedShows() (shows []*Shows, err error) {
 	if err := Authorized(); err != nil {
 		return shows, err
 	}
 
 	params := napping.Params{
-		"extended": "noseasons",
+		"extended": "full,images",
 	}.AsUrlValues()
+
 	endPoint := "sync/watched/shows"
 
 	cacheStore := cache.NewFileStore(path.Join(config.Get().ProfilePath, "cache"))
@@ -558,6 +590,8 @@ func WatchedProgressShows() (shows []*ProgressShow, err error) {
 		return shows, err
 	}
 
+	var wg sync.WaitGroup
+
 	params := napping.Params{
 		"hidden": "false",
 		"specials": "false",
@@ -570,31 +604,41 @@ func WatchedProgressShows() (shows []*ProgressShow, err error) {
 		log.Error("Error getting the watchedShows")
 		return shows, err
 	}
+
+	wg.Add(len(watchedShows))
+
 	for _, show := range watchedShows {
-		endPoint := fmt.Sprintf("shows/%s/progress/watched", show.Show.IDs.Slug)
+		go func(show *Shows) {
+			defer wg.Done()
+			endPoint := fmt.Sprintf("shows/%s/progress/watched", show.Show.IDs.Slug)
 
-		resp, err := GetWithAuth(endPoint, params)
-		if err != nil {
-			log.Error("Error getting endpoint ", endPoint, "for show ", show.Show.IDs.Slug)
-			return shows, err
-		} else if resp.Status() != 200 {
-			log.Error(err)
-			return shows, errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
-		}
-		var watchedProgressShow *WatchedProgressShow
-		if err := resp.Unmarshal(&watchedProgressShow); err != nil {
-			log.Warning(err)
-		}
-		
-		if watchedProgressShow.NextEpisode.Number != 0 && watchedProgressShow.NextEpisode.Season != 0 {
-			showItem := ProgressShow{
-				Show: show.Show,
-				Episode: &watchedProgressShow.NextEpisode,
+			resp, err := GetWithAuth(endPoint, params)
+			if err != nil {
+				log.Error("Error getting endpoint ", endPoint, "for show ", show.Show.IDs.Slug)
+				return
+			} else if resp.Status() != 200 {
+				log.Error(err)
+				return
 			}
+			var watchedProgressShow *WatchedProgressShow
+			if err := resp.Unmarshal(&watchedProgressShow); err != nil {
+				log.Warning(err)
+			}
+			
+			if watchedProgressShow.Aired > watchedProgressShow.Completed {
+				if watchedProgressShow.NextEpisode.Number != 0 && watchedProgressShow.NextEpisode.Season != 0 {
+					showItem := ProgressShow{
+						Show: show.Show,
+						Episode: &watchedProgressShow.NextEpisode,
+					}
 
-			showListing = append(showListing, &showItem)
-		}
+					showListing = append(showListing, &showItem)
+				}
+			}
+		}(show)
 	}
+
+	wg.Wait()
 
 	shows = showListing
 	shows = setProgressShowsFanart(shows)
