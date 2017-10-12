@@ -31,6 +31,7 @@ script:
   - make libs
   - make $PLATFORM
   - |
+    echo tpr ${TRAVIS_PULL_REQUEST} and tt ${TRAVIS_TAG}
     if [ "${TRAVIS_PULL_REQUEST}" = "false" ] && [ -n "${TRAVIS_TAG}" ]; then
       travis_retry ./push-binaries.sh
     fi
