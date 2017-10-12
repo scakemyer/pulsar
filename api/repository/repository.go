@@ -18,8 +18,8 @@ import (
 	"github.com/op/go-logging"
 	"github.com/gin-gonic/gin"
 	"github.com/google/go-github/github"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/xbmc"
 )
 
 const (

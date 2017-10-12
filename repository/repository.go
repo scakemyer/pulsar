@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/util"
+	"github.com/charly3pins/quasar/xbmc"
 )
 
 func copyFile(from string, to string) error {

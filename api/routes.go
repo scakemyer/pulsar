@@ -9,12 +9,12 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/cache"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/providers"
-	"github.com/scakemyer/quasar/bittorrent"
-	"github.com/scakemyer/quasar/api/repository"
+	"github.com/charly3pins/quasar/util"
+	"github.com/charly3pins/quasar/cache"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/providers"
+	"github.com/charly3pins/quasar/bittorrent"
+	"github.com/charly3pins/quasar/api/repository"
 )
 
 const (

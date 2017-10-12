@@ -20,12 +20,12 @@ import (
 	"github.com/op/go-logging"
 	"github.com/dustin/go-humanize"
 	"github.com/scakemyer/libtorrent-go"
-	"github.com/scakemyer/quasar/broadcast"
-	"github.com/scakemyer/quasar/diskusage"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/tmdb"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/quasar/broadcast"
+	"github.com/charly3pins/quasar/diskusage"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/tmdb"
+	"github.com/charly3pins/quasar/util"
+	"github.com/charly3pins/quasar/xbmc"
 	"github.com/zeebo/bencode"
 )
 

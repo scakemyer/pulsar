@@ -7,9 +7,9 @@ import (
 	"math/rand"
 
 	"github.com/jmcvetta/napping"
-	"github.com/scakemyer/quasar/cache"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/quasar/cache"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/xbmc"
 )
 
 func GetSeason(showId int, seasonNumber int, language string) *Season {

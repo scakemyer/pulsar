@@ -20,11 +20,11 @@ import (
 	humanize "github.com/dustin/go-humanize"
 	logging "github.com/op/go-logging"
 	libtorrent "github.com/scakemyer/libtorrent-go"
-	"github.com/scakemyer/quasar/broadcast"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/diskusage"
-	"github.com/scakemyer/quasar/trakt"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/quasar/broadcast"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/diskusage"
+	"github.com/charly3pins/quasar/trakt"
+	"github.com/charly3pins/quasar/xbmc"
 	"github.com/zeebo/bencode"
 )
 

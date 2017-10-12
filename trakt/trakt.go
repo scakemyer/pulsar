@@ -11,10 +11,10 @@ import (
 
 	"github.com/op/go-logging"
 	"github.com/jmcvetta/napping"
-	"github.com/scakemyer/quasar/cloudhole"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/quasar/cloudhole"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/util"
+	"github.com/charly3pins/quasar/xbmc"
 )
 
 const (

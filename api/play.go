@@ -7,10 +7,10 @@ import (
 	"encoding/hex"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scakemyer/quasar/bittorrent"
+	"github.com/charly3pins/quasar/bittorrent"
 	"github.com/scakemyer/libtorrent-go"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/quasar/util"
+	"github.com/charly3pins/quasar/xbmc"
 )
 
 func Play(btService *bittorrent.BTService) gin.HandlerFunc {

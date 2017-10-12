@@ -6,10 +6,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/op/go-logging"
-	"github.com/scakemyer/quasar/bittorrent"
-	"github.com/scakemyer/quasar/providers"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/quasar/bittorrent"
+	"github.com/charly3pins/quasar/providers"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/xbmc"
 )
 
 var searchLog = logging.MustGetLogger("search")

@@ -1,8 +1,8 @@
 package providers
 
 import (
-	"github.com/scakemyer/quasar/bittorrent"
-	"github.com/scakemyer/quasar/tmdb"
+	"github.com/charly3pins/quasar/bittorrent"
+	"github.com/charly3pins/quasar/tmdb"
 )
 
 type Searcher interface {
