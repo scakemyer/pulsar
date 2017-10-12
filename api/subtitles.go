@@ -13,10 +13,10 @@ import (
 
 	"github.com/gin-gonic/gin"
 	"github.com/op/go-logging"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/osdb"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/osdb"
+	"github.com/charly3pins/quasar/util"
+	"github.com/charly3pins/quasar/xbmc"
 )
 
 var subLog = logging.MustGetLogger("subtitles")

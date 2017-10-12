@@ -12,9 +12,9 @@ import (
 
 	"github.com/op/go-logging"
 	"github.com/scakemyer/libtorrent-go"
-	"github.com/scakemyer/quasar/broadcast"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/quasar/broadcast"
+	"github.com/charly3pins/quasar/util"
+	"github.com/charly3pins/quasar/xbmc"
 )
 
 const (

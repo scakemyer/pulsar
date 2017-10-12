@@ -10,11 +10,11 @@ import (
 	"path/filepath"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/cache"
-	"github.com/scakemyer/quasar/trakt"
-	"github.com/scakemyer/quasar/xbmc"
-	"github.com/scakemyer/quasar/tmdb"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/cache"
+	"github.com/charly3pins/quasar/trakt"
+	"github.com/charly3pins/quasar/xbmc"
+	"github.com/charly3pins/quasar/tmdb"
 )
 
 func inMoviesWatched(tmdbId int) bool {

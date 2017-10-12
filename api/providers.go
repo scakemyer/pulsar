@@ -6,8 +6,8 @@ import (
 	"strings"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/xbmc"
 )
 
 type Addon struct {

@@ -12,8 +12,8 @@ import (
 	"archive/zip"
 	"encoding/xml"
 
-	"github.com/scakemyer/quasar/cache"
-	"github.com/scakemyer/quasar/config"
+	"github.com/charly3pins/quasar/cache"
+	"github.com/charly3pins/quasar/config"
 )
 
 const (

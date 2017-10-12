@@ -4,8 +4,8 @@ import (
 	"strconv"
 
 	"github.com/op/go-logging"
-	"github.com/scakemyer/quasar/broadcast"
-	"github.com/scakemyer/quasar/bittorrent"
+	"github.com/charly3pins/quasar/broadcast"
+	"github.com/charly3pins/quasar/bittorrent"
 )
 
 var (

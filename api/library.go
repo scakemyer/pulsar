@@ -16,12 +16,12 @@ import (
 	"github.com/boltdb/bolt"
 	"github.com/gin-gonic/gin"
 	"github.com/op/go-logging"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
-	"github.com/scakemyer/quasar/tmdb"
-	"github.com/scakemyer/quasar/trakt"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/bittorrent"
+	"github.com/charly3pins/quasar/util"
+	"github.com/charly3pins/quasar/xbmc"
+	"github.com/charly3pins/quasar/tmdb"
+	"github.com/charly3pins/quasar/trakt"
+	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/quasar/bittorrent"
 )
 
 const (
