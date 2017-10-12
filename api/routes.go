@@ -114,6 +114,8 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 		movie.GET("/:tmdbId/watchlist/remove", RemoveMovieFromWatchlist)
 		movie.GET("/:tmdbId/collection/add", AddMovieToCollection)
 		movie.GET("/:tmdbId/collection/remove", RemoveMovieFromCollection)
+		movie.GET("/:tmdbId/trakt/watched", MarkMovieWatchedInTrakt)
+		movie.GET("/:tmdbId/trakt/unwatched", MarkMovieUnwatchedInTrakt)
 	}
 
 	shows := r.Group("/shows")
@@ -174,6 +176,12 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 		show.GET("/:showId/watchlist/remove", RemoveShowFromWatchlist)
 		show.GET("/:showId/collection/add", AddShowToCollection)
 		show.GET("/:showId/collection/remove", RemoveShowFromCollection)
+		show.GET("/:showId/trakt/watched", MarkShowWatchedInTrakt)
+		show.GET("/:showId/trakt/unwatched", MarkShowUnwatchedInTrakt)
+		show.GET("/:showId/season/:season/trakt/watched", MarkSeasonWatchedInTrakt)
+		show.GET("/:showId/season/:season/trakt/unwatched", MarkSeasonUnwatchedInTrakt)
+		show.GET("/:showId/season/:season/episode/:episode/trakt/watched", MarkEpisodeWatchedInTrakt)
+		show.GET("/:showId/season/:season/episode/:episode/trakt/unwatched", MarkEpisodeUnwatchedInTrakt)
 	}
 	// TODO
 	// episode := r.Group("/episode")
@@ -230,8 +238,6 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 	}
 
 	r.GET("/setviewmode/:content_type", SetViewMode)
-
-	r.GET("/youtube/:id", PlayYoutubeVideo)
 
 	r.GET("/subtitles", SubtitlesIndex)
 	r.GET("/subtitle/:id", SubtitleGet)

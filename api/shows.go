@@ -19,7 +19,6 @@ import (
 
 func TVIndex(ctx *gin.Context) {
 	items := xbmc.ListItems{
-		{Label: "LOCALIZE[30056]", Path: UrlForXBMC("/shows/trakt/"), Thumbnail: config.AddonResource("img", "trakt.png")},
 		{Label: "LOCALIZE[30209]", Path: UrlForXBMC("/shows/search"), Thumbnail: config.AddonResource("img", "search.png")},
 		{Label: "LOCALIZE[30246]", Path: UrlForXBMC("/shows/trakt/trending"), Thumbnail: config.AddonResource("img", "trending.png")},
 		{Label: "LOCALIZE[30238]", Path: UrlForXBMC("/shows/recent/episodes"), Thumbnail: config.AddonResource("img", "fresh.png")},
@@ -60,6 +59,7 @@ func TVGenres(ctx *gin.Context) {
 
 func TVTrakt(ctx *gin.Context) {
 	items := xbmc.ListItems{
+		{Label: "LOCALIZE[30312]", Path: UrlForXBMC("/shows/trakt/progress"), Thumbnail: config.AddonResource("img", "trakt.png")},
 		{Label: "LOCALIZE[30263]", Path: UrlForXBMC("/shows/trakt/lists/"), Thumbnail: config.AddonResource("img", "trakt.png")},
 		{
 			Label: "LOCALIZE[30254]",
@@ -84,8 +84,7 @@ func TVTrakt(ctx *gin.Context) {
 		{Label: "LOCALIZE[30248]", Path: UrlForXBMC("/shows/trakt/watched"), Thumbnail: config.AddonResource("img", "most_watched.png")},
 		{Label: "LOCALIZE[30249]", Path: UrlForXBMC("/shows/trakt/collected"), Thumbnail: config.AddonResource("img", "most_collected.png")},
 		{Label: "LOCALIZE[30250]", Path: UrlForXBMC("/shows/trakt/anticipated"), Thumbnail: config.AddonResource("img", "most_anticipated.png")},
-		{Label: "My shows", Path: UrlForXBMC("/shows/trakt/history"), Thumbnail: config.AddonResource("img", "trakt.png")},
-		{Label: "My next episodes", Path: UrlForXBMC("/shows/trakt/progress"), Thumbnail: config.AddonResource("img", "trakt.png")},
+		{Label: "LOCALIZE[30311]", Path: UrlForXBMC("/shows/trakt/history"), Thumbnail: config.AddonResource("img", "trakt.png")},
 
 	}
 	ctx.JSON(200, xbmc.NewView("menus_tvshows", items))
@@ -149,8 +148,16 @@ func renderShows(ctx *gin.Context, shows tmdb.Shows, page int, total int, query 
 		}
 		item := show.ToListItem()
 		item.Path = UrlForXBMC("/show/%d/seasons", show.Id)
+		if item.Info.Trailer != "" {
+			if strings.Contains(item.Info.Trailer, "?v=") {
+				item.Info.Trailer = fmt.Sprintf("plugin://plugin.video.youtube/play/?video_id=%s", strings.Split(item.Info.Trailer, "?v=")[1])
+			} else {
+			item.Info.Trailer = fmt.Sprintf("plugin://plugin.video.youtube/play/?video_id=%s", item.Info.Trailer)
+			}
+		}
 
 		tmdbId := strconv.Itoa(show.Id)
+
 		libraryAction := []string{"LOCALIZE[30252]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/library/show/add/%d", show.Id))}
 		if _, err := isDuplicateShow(tmdbId); err != nil || isAddedToLibrary(tmdbId, Show) {
 			libraryAction = []string{"LOCALIZE[30253]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/library/show/remove/%d", show.Id))}
@@ -332,18 +339,34 @@ func ShowEpisodes(ctx *gin.Context) {
 
 		item.Path = defaultURL
 
+		item.ContextMenu = [][]string{
+			[]string{contextLabel, fmt.Sprintf("XBMC.PlayMedia(%s)", contextURL)},
+			[]string{"LOCALIZE[30037]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/setviewmode/episodes"))},
+		}
+		if config.Get().TraktToken != "" {
+			markWatchedLabel := "LOCALIZE[30313]"
+			markWatchedURL := UrlForXBMC("/show/%d/season/%d/episode/%d/trakt/watched",
+				show.Id,
+				seasonNumber,
+				item.Info.Episode,
+			)
+			markUnwatchedLabel := "LOCALIZE[30314]"
+			markUnwatchedURL := UrlForXBMC("/show/%d/season/%d/episode/%d/trakt/unwatched",
+				show.Id,
+				seasonNumber,
+				item.Info.Episode,
+			)
+			markAction := []string{markWatchedLabel, fmt.Sprintf("XBMC.RunPlugin(%s)", markWatchedURL)}
+			if inEpisodesWatched(show.Id, seasonNumber, item.Info.Episode) {
+				item.Info.Overlay = xbmc.IconOverlayWatched
+				item.Info.PlayCount = 1
+				markAction = []string{markUnwatchedLabel, fmt.Sprintf("XBMC.RunPlugin(%s)", markUnwatchedURL)}
+			}
+			item.ContextMenu = append(item.ContextMenu, markAction)
+		}
 		if config.Get().Platform.Kodi < 17 {
-			item.ContextMenu = [][]string{
-				[]string{contextLabel, fmt.Sprintf("XBMC.PlayMedia(%s)", contextURL)},
-				[]string{"LOCALIZE[30203]", "XBMC.Action(Info)"},
-				[]string{"LOCALIZE[30268]", "XBMC.Action(ToggleWatched)"},
-				[]string{"LOCALIZE[30037]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/setviewmode/episodes"))},
-			}
-		} else {
-			item.ContextMenu = [][]string{
-				[]string{contextLabel, fmt.Sprintf("XBMC.PlayMedia(%s)", contextURL)},
-				[]string{"LOCALIZE[30037]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/setviewmode/episodes"))},
-			}
+			item.ContextMenu = append(item.ContextMenu, []string{"LOCALIZE[30203]", "XBMC.Action(Info)"})
+			item.ContextMenu = append(item.ContextMenu, []string{"LOCALIZE[30268]", "XBMC.Action(ToggleWatched)"})
 		}
 		item.IsPlayable = true
 	}
