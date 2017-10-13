@@ -9,6 +9,7 @@ import (
 	"strings"
 	"path/filepath"
 
+	"github.com/op/go-logging"
 	"github.com/gin-gonic/gin"
 	"github.com/charly3pins/quasar/config"
 	"github.com/charly3pins/quasar/cache"
@@ -17,26 +18,49 @@ import (
 	"github.com/charly3pins/quasar/tmdb"
 )
 
+var traktLog = logging.MustGetLogger("trakt")
+
 func inMoviesWatched(tmdbId int) bool {
 	if config.Get().TraktToken == "" {
 		return false
 	}
 
-	var movies []*trakt.WatchedMovie
-
-	cacheStore := cache.NewFileStore(path.Join(config.Get().ProfilePath, "cache"))
-	key := fmt.Sprintf("com.trakt.watched.movies")
-	if err := cacheStore.Get(key, &movies); err != nil {
-		movies, _ := trakt.WatchedMovies()
-		cacheStore.Set(key, movies, 10 * time.Minute)
+	if len(trakt.WatchedMoviesMap) == 0 {
+		traktLog.Info("inMoviesWatched fetching cache for the first time")
+		trakt.WatchedMovies()
 	}
 
-	for _, movie := range movies {
-		if tmdbId == movie.Movie.IDs.TMDB {
-			return true
-		}
+	if _, ok := trakt.WatchedMoviesMap[trakt.WatchedMoviesCache{tmdbId}]; ok {
+		return true
 	}
+
 	return false
+}
+
+func addToMoviesWatched(tmdbId int) bool {
+	if config.Get().TraktToken == "" {
+		return false
+	}
+
+	if _, ok := trakt.WatchedMoviesMap[trakt.WatchedMoviesCache{tmdbId}]; !ok {
+		traktLog.Infof("adding %d to cache", tmdbId)
+		trakt.WatchedMoviesMap[trakt.WatchedMoviesCache{tmdbId}] = 1
+	}
+
+	return true
+}
+
+func removeFromMoviesWatched(tmdbId int) bool {
+	if config.Get().TraktToken == "" {
+		return false
+	}
+
+	if _, ok := trakt.WatchedMoviesMap[trakt.WatchedMoviesCache{tmdbId}]; ok {
+		traktLog.Infof("removing %d from cache", tmdbId)
+		delete(trakt.WatchedMoviesMap, trakt.WatchedMoviesCache{tmdbId})
+	}
+
+	return true
 }
 
 func inEpisodesWatched(showId, seasonNumber, episodeNumber int) bool {
@@ -44,29 +68,42 @@ func inEpisodesWatched(showId, seasonNumber, episodeNumber int) bool {
 		return false
 	}
 
-	var shows []*trakt.WatchedShow
-
-	cacheStore := cache.NewFileStore(path.Join(config.Get().ProfilePath, "cache"))
-	key := fmt.Sprintf("com.trakt.watched.episodes")
-	if err := cacheStore.Get(key, &shows); err != nil {
-		shows, _ := trakt.WatchedEpisodes()
-		cacheStore.Set(key, shows, 10 * time.Minute)
+	if len(trakt.WatchedEpisodesMap) == 0 {
+		traktLog.Info("inEpisodesWatched fetching cache for the first time")
+		trakt.WatchedEpisodes()
 	}
 
-	for _, show := range shows {
-		if showId == show.Show.IDs.TMDB {
-			for _, season := range show.Seasons {
-				if seasonNumber == season.Number {
-					for _, episode := range season.Episodes {
-						if episodeNumber == episode.Number {
-							return true
-						}
-					}
-				}
-			}
-		}
+	if _, ok := trakt.WatchedEpisodesMap[trakt.WatchedEpisodesCache{showId, seasonNumber, episodeNumber}]; ok {
+		return true
 	}
+
 	return false
+}
+
+func addToEpisodesWatched(showId, seasonNumber, episodeNumber int) bool {
+	if config.Get().TraktToken == "" {
+		return false
+	}
+
+	if _, ok := trakt.WatchedEpisodesMap[trakt.WatchedEpisodesCache{showId, seasonNumber, episodeNumber}]; !ok {
+		traktLog.Infof("adding show:%d season:%d episode:%d to cache", showId, seasonNumber, episodeNumber)
+		trakt.WatchedEpisodesMap[trakt.WatchedEpisodesCache{showId, seasonNumber, episodeNumber}] = 1
+	}
+
+	return true
+}
+
+func removeFromEpisodesWatched(showId, seasonNumber, episodeNumber int) bool {
+	if config.Get().TraktToken == "" {
+		return false
+	}
+
+	if _, ok := trakt.WatchedEpisodesMap[trakt.WatchedEpisodesCache{showId, seasonNumber, episodeNumber}]; ok {
+		traktLog.Infof("removing show:%d season:%d episode:%d from cache", showId, seasonNumber, episodeNumber)
+		delete(trakt.WatchedEpisodesMap, trakt.WatchedEpisodesCache{showId, seasonNumber, episodeNumber})
+	}
+
+	return true
 }
 
 func inMoviesWatchlist(tmdbId int) bool {
@@ -368,6 +405,8 @@ func MarkMovieWatchedInTrakt(ctx *gin.Context) {
 	} else {
 		xbmc.Notify("Quasar", "Movie marked as watched in Trakt", config.AddonIcon())
 	}
+	addToMoviesWatched(tmdbId)
+	xbmc.Refresh()
 }
 
 func MarkMovieUnwatchedInTrakt(ctx *gin.Context) {
@@ -380,6 +419,8 @@ func MarkMovieUnwatchedInTrakt(ctx *gin.Context) {
 	} else {
 		xbmc.Notify("Quasar", "Movie marked as unwatched in Trakt", config.AddonIcon())
 	}
+	removeFromMoviesWatched(tmdbId)
+	xbmc.Refresh()
 }
 
 func MarkShowWatchedInTrakt(ctx *gin.Context) {
@@ -444,6 +485,8 @@ func MarkEpisodeWatchedInTrakt(ctx *gin.Context) {
 	} else {
 		xbmc.Notify("Quasar", "Episode marked as watched in Trakt", config.AddonIcon())
 	}
+	addToEpisodesWatched(showId, season, episode)
+	xbmc.Refresh()
 }
 
 func MarkEpisodeUnwatchedInTrakt(ctx *gin.Context) {
@@ -458,6 +501,8 @@ func MarkEpisodeUnwatchedInTrakt(ctx *gin.Context) {
 	} else {
 		xbmc.Notify("Quasar", "Episode marked as unwatched in Trakt", config.AddonIcon())
 	}
+	removeFromEpisodesWatched(showId, season, episode)
+	xbmc.Refresh()
 }
 
 // func AddEpisodeToWatchlist(ctx *gin.Context) {
