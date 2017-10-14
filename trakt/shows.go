@@ -243,7 +243,7 @@ func SearchShows(query string, page string) (shows []*Shows, err error) {
 	if err != nil {
 		return
 	} else if resp.Status() != 200 {
-		log.Error(err)
+		log.Error("Bad status ", resp.Status(), " searching Trakt shows")
 		return shows, errors.New(fmt.Sprintf("Bad status searching Trakt shows: %d", resp.Status()))
 	}
 
@@ -513,43 +513,6 @@ func CalendarShows(endPoint string, page string) (shows []*CalendarShow, total i
 	return
 }
 
-func WatchedEpisodes() (err error) {
-	var watchedShows []*WatchedShow
-	if err := Authorized(); err != nil {
-		return err
-	}
-
-	params := napping.Params{}.AsUrlValues()
-
-	endPoint := "sync/watched/shows"
-
-	if len(WatchedEpisodesMap) == 0 {
-		resp, err := GetWithAuth(endPoint, params)
-
-		if err != nil {
-			return err
-		} else if resp.Status() != 200 {
-			log.Error(err)
-			return errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
-		}
-
-		if err := resp.Unmarshal(&watchedShows); err != nil {
-			log.Warning(err)
-		}
-
-		for _, show := range watchedShows {
-			for _, season := range show.Seasons {
-				for _, episode := range season.Episodes {
-					showLog.Infof("setting show: %d season: %d episode: %d as watched in cache", show.Show.IDs.TMDB, season.Number, episode.Number)
-					WatchedEpisodesMap[WatchedEpisodesCache{show.Show.IDs.TMDB, season.Number, episode.Number}] = 1
-				}
-			}
-                }
-	}
-
-	return
-}
-
 func WatchedShows() (shows []*Shows, err error) {
 	if err := Authorized(); err != nil {
 		return shows, err
@@ -569,7 +532,7 @@ func WatchedShows() (shows []*Shows, err error) {
 		if err != nil {
 			return shows, err
 		} else if resp.Status() != 200 {
-			log.Error(err)
+			log.Error("Got %d response status getting endpoint ", resp.Status())
 			return shows, errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
 		}
 
@@ -595,12 +558,13 @@ func WatchedShows() (shows []*Shows, err error) {
 	return
 }
 
-func WatchedProgressShows() (shows []*ProgressShow, err error) {
+func WatchedShowsProgress() (shows []*ProgressShow, err error) {
 	if err := Authorized(); err != nil {
 		return shows, err
 	}
 
 	var wg sync.WaitGroup
+	var mapLock = sync.RWMutex{}
 
 	params := napping.Params{
 		"hidden": "false",
@@ -609,6 +573,8 @@ func WatchedProgressShows() (shows []*ProgressShow, err error) {
 	}.AsUrlValues()
 
 	showListing := make([]*ProgressShow, 0)
+	watchedProgressShows := make(map[int]*WatchedProgressShow, 0)
+
 	watchedShows, err := WatchedShows()
 	if err != nil {
 		log.Error("Error getting the watchedShows")
@@ -627,7 +593,7 @@ func WatchedProgressShows() (shows []*ProgressShow, err error) {
 				log.Error("Error getting endpoint ", endPoint, "for show ", show.Show.IDs.Slug)
 				return
 			} else if resp.Status() != 200 {
-				log.Error(err)
+				log.Error("Got ", resp.Status(), " response status getting endpoint ", endPoint, "for show ", show.Show.IDs.Slug)
 				return
 			}
 			var watchedProgressShow *WatchedProgressShow
@@ -635,6 +601,10 @@ func WatchedProgressShows() (shows []*ProgressShow, err error) {
 				log.Warning(err)
 			}
 			
+			mapLock.Lock()
+			watchedProgressShows[show.Show.IDs.TMDB] = watchedProgressShow
+			mapLock.Unlock()
+
 			if watchedProgressShow.Aired > watchedProgressShow.Completed {
 				if watchedProgressShow.NextEpisode.Number != 0 && watchedProgressShow.NextEpisode.Season != 0 {
 					showItem := ProgressShow{
@@ -650,8 +620,84 @@ func WatchedProgressShows() (shows []*ProgressShow, err error) {
 
 	wg.Wait()
 
+	for showId, watchedProgressShow := range watchedProgressShows {
+		// Now we can populate all maps
+		WatchedShowsMap[showId] = AiredStatus{Aired: watchedProgressShow.Aired, Completed: watchedProgressShow.Completed}
+		for _, season := range watchedProgressShow.Seasons {
+			if WatchedSeasonsMap[showId] == nil {
+				WatchedSeasonsMap[showId] = make(map[int]AiredStatus)
+			}
+			WatchedSeasonsMap[showId][season.Number] = AiredStatus{Aired: season.Aired, Completed: season.Completed}
+			for _, episode := range season.Episodes {
+				showLog.Infof("setting show: %d season: %d episode: %d watched: %t in cache", showId, season.Number, episode.Number, episode.Completed)
+				if WatchedEpisodesMap[showId] == nil {
+					WatchedEpisodesMap[showId] = make(map[int]map[int]bool)
+					WatchedEpisodesMap[showId][season.Number] = make(map[int]bool)
+				} else if WatchedEpisodesMap[showId][season.Number] == nil {
+					WatchedEpisodesMap[showId][season.Number] = make(map[int]bool)
+				}
+				WatchedEpisodesMap[showId][season.Number][episode.Number] = episode.Completed
+			}
+		}
+	}
+
 	shows = showListing
 	shows = setProgressShowsFanart(shows)
+
+	return
+}
+
+func WatchedShowProgress(showId int) (err error) {
+	if err := Authorized(); err != nil {
+		return err
+	}
+
+	show := tmdb.GetShow(showId, config.Get().Language)
+
+	if show == nil {
+                log.Error("Can't fetch show ", showId, " from TMDB")
+                return
+        }
+
+	params := napping.Params{
+		"hidden": "false",
+		"specials": "false",
+		"count_specials": "true",
+	}.AsUrlValues()
+
+	endPoint := fmt.Sprintf("shows/%s/progress/watched", show.ExternalIDs.IMDBId)
+
+	resp, err := GetWithAuth(endPoint, params)
+	if err != nil {
+		log.Error("Error getting endpoint ", endPoint, "for show ", showId)
+		return
+	} else if resp.Status() != 200 {
+		log.Error("Got ", resp.Status(), " response status getting endpoint ", endPoint, "for show ", showId)
+		return
+	}
+	var watchedProgressShow *WatchedProgressShow
+	if err := resp.Unmarshal(&watchedProgressShow); err != nil {
+		log.Warning(err)
+	}
+			
+	// Now we can populate all maps
+	WatchedShowsMap[showId] = AiredStatus{Aired: watchedProgressShow.Aired, Completed: watchedProgressShow.Completed}
+	for _, season := range watchedProgressShow.Seasons {
+		if WatchedSeasonsMap[showId] == nil {
+			WatchedSeasonsMap[showId] = make(map[int]AiredStatus)
+		}
+		WatchedSeasonsMap[showId][season.Number] = AiredStatus{Aired: season.Aired, Completed: season.Completed}
+		for _, episode := range season.Episodes {
+			showLog.Infof("setting show: %d season: %d episode: %d watched: %t in cache", showId, season.Number, episode.Number, episode.Completed)
+			if WatchedEpisodesMap[showId] == nil {
+				WatchedEpisodesMap[showId] = make(map[int]map[int]bool)
+				WatchedEpisodesMap[showId][season.Number] = make(map[int]bool)
+			} else if WatchedEpisodesMap[showId][season.Number] == nil {
+				WatchedEpisodesMap[showId][season.Number] = make(map[int]bool)
+			}
+			WatchedEpisodesMap[showId][season.Number][episode.Number] = episode.Completed
+		}
+	}
 
 	return
 }

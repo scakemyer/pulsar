@@ -25,12 +25,7 @@ func inMoviesWatched(tmdbId int) bool {
 		return false
 	}
 
-	if len(trakt.WatchedMoviesMap) == 0 {
-		traktLog.Info("inMoviesWatched fetching cache for the first time")
-		trakt.WatchedMovies()
-	}
-
-	if _, ok := trakt.WatchedMoviesMap[trakt.WatchedMoviesCache{tmdbId}]; ok {
+	if _, ok := trakt.WatchedMoviesMap[tmdbId]; ok {
 		return true
 	}
 
@@ -42,9 +37,9 @@ func addToMoviesWatched(tmdbId int) bool {
 		return false
 	}
 
-	if _, ok := trakt.WatchedMoviesMap[trakt.WatchedMoviesCache{tmdbId}]; !ok {
+	if _, ok := trakt.WatchedMoviesMap[tmdbId]; !ok {
 		traktLog.Infof("adding %d to cache", tmdbId)
-		trakt.WatchedMoviesMap[trakt.WatchedMoviesCache{tmdbId}] = 1
+		trakt.WatchedMoviesMap[tmdbId] = true
 	}
 
 	return true
@@ -55,10 +50,181 @@ func removeFromMoviesWatched(tmdbId int) bool {
 		return false
 	}
 
-	if _, ok := trakt.WatchedMoviesMap[trakt.WatchedMoviesCache{tmdbId}]; ok {
+	if _, ok := trakt.WatchedMoviesMap[tmdbId]; ok {
 		traktLog.Infof("removing %d from cache", tmdbId)
-		delete(trakt.WatchedMoviesMap, trakt.WatchedMoviesCache{tmdbId})
+		delete(trakt.WatchedMoviesMap, tmdbId)
 	}
+
+	return true
+}
+
+func inShowsWatched(showId int) bool {
+	if config.Get().TraktToken == "" {
+		return false
+	}
+
+	// If we don't have show info then we didn't watch it
+	if trakt.WatchedShowsMap[showId].Aired == 0 {
+		traktLog.Infof("inShowsWatched showid: %d not in cache", showId)
+		return false
+	}
+
+	if trakt.WatchedShowsMap[showId].Aired - trakt.WatchedShowsMap[showId].Completed == 0 {
+		traktLog.Infof("inShowsWatched showid: %d watched", showId)
+		return true
+	}
+
+	traktLog.Infof("inShowsWatched showid: %d isn't watched", showId)
+	return false
+}
+
+func addToShowsWatched(showId int) bool {
+	if config.Get().TraktToken == "" {
+		return false
+	}
+
+	// See if we have show info
+	if trakt.WatchedShowsMap[showId].Aired == 0 {
+		traktLog.Infof("addToShowsWatched fetching info for showid: %d", showId)
+		if err := trakt.WatchedShowProgress(showId); err != nil {
+			traktLog.Infof("addToShowsWatched couldn't get info for showid: %d", showId)
+			return false
+		}
+	}
+		
+	aired := trakt.WatchedShowsMap[showId].Aired
+	trakt.WatchedShowsMap[showId] = trakt.AiredStatus{Aired: aired, Completed: aired}
+
+	// Mark seasons and episodes watched
+	for season, seasonStatus := range trakt.WatchedSeasonsMap[showId] {
+		aired := seasonStatus.Aired
+		trakt.WatchedSeasonsMap[showId][season] = trakt.AiredStatus{Aired: aired, Completed: aired}
+		for episode, _ := range trakt.WatchedEpisodesMap[showId][season] {
+			trakt.WatchedEpisodesMap[showId][season][episode] = true
+		}
+	}
+	traktLog.Infof("addToShowsWatched marking showid: %d watched", showId)
+
+	return true
+}
+
+func removeFromShowsWatched(showId int) bool {
+	if config.Get().TraktToken == "" {
+		return false
+	}
+
+	// See if we have show info
+	if trakt.WatchedShowsMap[showId].Aired == 0 {
+		traktLog.Infof("removeFromShowsWatched fetching info for showid: %d", showId)
+		if err := trakt.WatchedShowProgress(showId); err != nil {
+			traktLog.Infof("removeFromShowsWatched couldn't get info for showid: %d", showId)
+			return false
+		}
+	}
+
+	aired := trakt.WatchedShowsMap[showId].Aired
+	trakt.WatchedShowsMap[showId] = trakt.AiredStatus{Aired: aired, Completed: 0}
+
+	// Mark seasons and episodes watched
+	for season, seasonStatus := range trakt.WatchedSeasonsMap[showId] {
+		aired := seasonStatus.Aired
+		trakt.WatchedSeasonsMap[showId][season] = trakt.AiredStatus{Aired: aired, Completed: 0}
+		for episode, _ := range trakt.WatchedEpisodesMap[showId][season] {
+			trakt.WatchedEpisodesMap[showId][season][episode] = false
+		}
+	}
+	traktLog.Infof("removeFromShowsWatched marking showid: %d not watched", showId)
+	return true
+}
+
+func inSeasonsWatched(showId, seasonNumber int) bool {
+	if config.Get().TraktToken == "" {
+		return false
+	}
+
+	// If we don't have it in cache then we didn't watch it
+	if trakt.WatchedSeasonsMap[showId] == nil {
+		traktLog.Infof("inSeasonsWatched showid: %d season: %d is not in cache", showId, seasonNumber)
+		return false
+	}
+
+	if _, ok := trakt.WatchedSeasonsMap[showId][seasonNumber]; ok {
+		if trakt.WatchedSeasonsMap[showId][seasonNumber].Aired > 0 {
+			if trakt.WatchedSeasonsMap[showId][seasonNumber].Aired - trakt.WatchedSeasonsMap[showId][seasonNumber].Completed == 0 {
+			traktLog.Infof("inSeasonsWatched showid: %d season %d is watched", showId, seasonNumber)
+			return true
+			}
+		}
+	}
+
+	traktLog.Infof("inSeasonsWatched showid: %d season: %d is not watched", showId, seasonNumber)
+	return false
+}
+
+func addToSeasonsWatched(showId, seasonNumber int) bool {
+	if config.Get().TraktToken == "" {
+		return false
+	}
+
+	if trakt.WatchedSeasonsMap[showId] == nil {
+		traktLog.Infof("addToSeasonsWatched fetching info for showid: %d", showId)
+		if err := trakt.WatchedShowProgress(showId); err != nil {
+			traktLog.Infof("addToSeasonsWatched can't get info for showid: %d", showId)
+			return false
+		}
+	}
+
+	// Mark season watched
+	aired := trakt.WatchedSeasonsMap[showId][seasonNumber].Aired
+	trakt.WatchedSeasonsMap[showId][seasonNumber] = trakt.AiredStatus{Aired: aired, Completed: aired}
+
+	// Mark episodes watched and also update show Completed counter
+	aired = trakt.WatchedShowsMap[showId].Aired
+	completed := trakt.WatchedShowsMap[showId].Completed
+	for episode, watched := range trakt.WatchedEpisodesMap[showId][seasonNumber] {
+		traktLog.Infof("addToSeasonsWatched episode %d is %t", episode, watched)
+		if !watched {
+			traktLog.Infof("addToSeasonsWatched marking season: %d episode: %d watched", seasonNumber, episode)
+			completed++
+			trakt.WatchedEpisodesMap[showId][seasonNumber][episode] = true
+		}
+	}
+	trakt.WatchedShowsMap[showId] = trakt.AiredStatus{Aired: aired, Completed: completed}
+	traktLog.Infof("addToSeasonsWatched marking season: %d aired: %d completed: %d", seasonNumber, aired, completed)
+
+	return true
+}
+
+func removeFromSeasonsWatched(showId, seasonNumber int) bool {
+	if config.Get().TraktToken == "" {
+		return false
+	}
+
+	if trakt.WatchedSeasonsMap[showId] == nil {
+		traktLog.Infof("removeFromSeasonsWatched fetching info for showid: %d", showId)
+		if err := trakt.WatchedShowProgress(showId); err != nil {
+			traktLog.Infof("removeFromSeasonsWatched can't get info for showid: %d", showId)
+			return false
+		}
+	}
+
+	// Mark season watched
+	aired := trakt.WatchedSeasonsMap[showId][seasonNumber].Aired
+	trakt.WatchedSeasonsMap[showId][seasonNumber] = trakt.AiredStatus{Aired: aired, Completed: 0}
+
+	// Mark episodes not watched and also update show Completed counter
+	aired = trakt.WatchedShowsMap[showId].Aired
+	completed := trakt.WatchedShowsMap[showId].Completed
+	for episode, watched := range trakt.WatchedEpisodesMap[showId][seasonNumber] {
+		traktLog.Infof("removeFromSeasonsWatched episode %d is %t", episode, watched)
+		if watched {
+			traktLog.Infof("removeFromSeasonsWatched marking season: %d episode %d not watched", seasonNumber, episode)
+			completed--
+			trakt.WatchedEpisodesMap[showId][seasonNumber][episode] = false
+		}
+	}
+	trakt.WatchedShowsMap[showId] = trakt.AiredStatus{Aired: aired, Completed: completed}
+	traktLog.Infof("removeFromSeasonsWatched marking season: %d aired: %d completed: %d", seasonNumber, aired, completed)
 
 	return true
 }
@@ -68,13 +234,13 @@ func inEpisodesWatched(showId, seasonNumber, episodeNumber int) bool {
 		return false
 	}
 
-	if len(trakt.WatchedEpisodesMap) == 0 {
-		traktLog.Info("inEpisodesWatched fetching cache for the first time")
-		trakt.WatchedEpisodes()
+	if trakt.WatchedEpisodesMap[showId] == nil || trakt.WatchedEpisodesMap[showId][seasonNumber] == nil {
+		traktLog.Infof("inEpisodesWatched show: %d season %d episode %d is not in cache", showId, seasonNumber, episodeNumber)
+		return false
 	}
 
-	if _, ok := trakt.WatchedEpisodesMap[trakt.WatchedEpisodesCache{showId, seasonNumber, episodeNumber}]; ok {
-		return true
+	if watched, ok := trakt.WatchedEpisodesMap[showId][seasonNumber][episodeNumber]; ok {
+		return watched
 	}
 
 	return false
@@ -85,9 +251,32 @@ func addToEpisodesWatched(showId, seasonNumber, episodeNumber int) bool {
 		return false
 	}
 
-	if _, ok := trakt.WatchedEpisodesMap[trakt.WatchedEpisodesCache{showId, seasonNumber, episodeNumber}]; !ok {
-		traktLog.Infof("adding show:%d season:%d episode:%d to cache", showId, seasonNumber, episodeNumber)
-		trakt.WatchedEpisodesMap[trakt.WatchedEpisodesCache{showId, seasonNumber, episodeNumber}] = 1
+	// Let's check if we need to initialize maps
+	if trakt.WatchedEpisodesMap[showId] == nil || trakt.WatchedEpisodesMap[showId][seasonNumber] == nil {
+		traktLog.Infof("addToEpisodesWatched fetching info for showid: %d", showId)
+		if err := trakt.WatchedShowProgress(showId); err != nil {
+			traktLog.Infof("addToEpisodesWatched can't get info for showid: %d", showId)
+			return false
+		}
+	}
+
+	// Here we just change status if it's not already set and update Show and Season Completed counter
+	if watched, ok := trakt.WatchedEpisodesMap[showId][seasonNumber][episodeNumber]; ok {
+		if !watched {
+			traktLog.Infof("addToEpisodesWatched adding show:%d season:%d episode:%d to cache", showId, seasonNumber, episodeNumber)
+			trakt.WatchedEpisodesMap[showId][seasonNumber][episodeNumber] = true
+
+			// Also update Season and Show Completed counter
+			aired := trakt.WatchedShowsMap[showId].Aired
+			completed := trakt.WatchedShowsMap[showId].Completed + 1
+			trakt.WatchedShowsMap[showId] = trakt.AiredStatus{Aired: aired, Completed: completed}
+			traktLog.Infof("addToEpisodesWatched setting show: %d aired: %d completed: %d", showId, aired, completed)
+			
+			aired = trakt.WatchedSeasonsMap[showId][seasonNumber].Aired
+			completed = trakt.WatchedSeasonsMap[showId][seasonNumber].Completed + 1
+			trakt.WatchedSeasonsMap[showId][seasonNumber] = trakt.AiredStatus{Aired: aired, Completed: completed}
+			traktLog.Infof("addToEpisodesWatched setting season: %d aired: %d completed: %d", seasonNumber, aired, completed)
+		}
 	}
 
 	return true
@@ -98,9 +287,30 @@ func removeFromEpisodesWatched(showId, seasonNumber, episodeNumber int) bool {
 		return false
 	}
 
-	if _, ok := trakt.WatchedEpisodesMap[trakt.WatchedEpisodesCache{showId, seasonNumber, episodeNumber}]; ok {
-		traktLog.Infof("removing show:%d season:%d episode:%d from cache", showId, seasonNumber, episodeNumber)
-		delete(trakt.WatchedEpisodesMap, trakt.WatchedEpisodesCache{showId, seasonNumber, episodeNumber})
+	// Let's check if we need to initialize maps
+	if trakt.WatchedEpisodesMap[showId] == nil || trakt.WatchedEpisodesMap[showId][seasonNumber] == nil {
+		traktLog.Infof("removeFromEpisodesWatched fetching info for showid: %d", showId)
+		if err := trakt.WatchedShowProgress(showId); err != nil {
+			traktLog.Infof("removeFromEpisodesWatched can't get info for showid: %d", showId)
+			return false
+		}
+	}
+
+	// Here we just change status and update Show and Season Completed counter
+	if watched, ok := trakt.WatchedEpisodesMap[showId][seasonNumber][episodeNumber]; ok {
+		if watched {
+			traktLog.Infof("removeFromEpisodesWatched removing show:%d season:%d episode:%d from cache", showId, seasonNumber, episodeNumber)
+			trakt.WatchedEpisodesMap[showId][seasonNumber][episodeNumber] = false
+
+			aired := trakt.WatchedShowsMap[showId].Aired
+			completed := trakt.WatchedShowsMap[showId].Completed - 1
+			trakt.WatchedShowsMap[showId] = trakt.AiredStatus{Aired: aired, Completed: completed}
+			traktLog.Infof("removeFromEpisodesWatched setting show: %d aired: %d completed: %d", showId, aired, completed)
+			aired = trakt.WatchedSeasonsMap[showId][seasonNumber].Aired
+			completed = trakt.WatchedSeasonsMap[showId][seasonNumber].Completed - 1
+			trakt.WatchedSeasonsMap[showId][seasonNumber] = trakt.AiredStatus{Aired: aired, Completed: completed}
+			traktLog.Infof("removeFromEpisodesWatched setting season: %d aired: %d completed: %d", seasonNumber, aired, completed)
+		}
 	}
 
 	return true
@@ -431,8 +641,10 @@ func MarkShowWatchedInTrakt(ctx *gin.Context) {
 	} else if resp.Status() != 201 {
 		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Episode marked as watched in Trakt", config.AddonIcon())
+		xbmc.Notify("Quasar", "Show marked as watched in Trakt", config.AddonIcon())
 	}
+	addToShowsWatched(showId)
+	xbmc.Refresh()
 }
 
 func MarkShowUnwatchedInTrakt(ctx *gin.Context) {
@@ -443,8 +655,10 @@ func MarkShowUnwatchedInTrakt(ctx *gin.Context) {
 	} else if resp.Status() != 200 {
 		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Episode marked as unwatched in Trakt", config.AddonIcon())
+		xbmc.Notify("Quasar", "Show marked as unwatched in Trakt", config.AddonIcon())
 	}
+	removeFromShowsWatched(showId)
+	xbmc.Refresh()
 }
 
 func MarkSeasonWatchedInTrakt(ctx *gin.Context) {
@@ -456,8 +670,10 @@ func MarkSeasonWatchedInTrakt(ctx *gin.Context) {
 	} else if resp.Status() != 201 {
 		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Episode marked as watched in Trakt", config.AddonIcon())
+		xbmc.Notify("Quasar", "Season marked as watched in Trakt", config.AddonIcon())
 	}
+	addToSeasonsWatched(showId, season)
+	xbmc.Refresh()
 }
 
 func MarkSeasonUnwatchedInTrakt(ctx *gin.Context) {
@@ -469,8 +685,10 @@ func MarkSeasonUnwatchedInTrakt(ctx *gin.Context) {
 	} else if resp.Status() != 200 {
 		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Episode marked as unwatched in Trakt", config.AddonIcon())
+		xbmc.Notify("Quasar", "Season marked as unwatched in Trakt", config.AddonIcon())
 	}
+	removeFromSeasonsWatched(showId, season)
+	xbmc.Refresh()
 }
 
 func MarkEpisodeWatchedInTrakt(ctx *gin.Context) {
@@ -754,12 +972,24 @@ func renderTraktShows(ctx *gin.Context, shows []*trakt.Shows, total int, page in
 			collectionAction = []string{"LOCALIZE[30259]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/show/%d/collection/remove", show.IDs.TMDB))}
 		}
 
+		markWatchedLabel := "LOCALIZE[30313]"
+		markWatchedURL := UrlForXBMC("/show/%d/trakt/watched", show.IDs.TMDB)
+		markUnwatchedLabel := "LOCALIZE[30314]"
+		markUnwatchedURL := UrlForXBMC("/show/%d/trakt/unwatched", show.IDs.TMDB)
+		markAction := []string{markWatchedLabel, fmt.Sprintf("XBMC.RunPlugin(%s)", markWatchedURL)}
+		if inShowsWatched(show.IDs.TMDB) {
+			item.Info.Overlay = xbmc.IconOverlayWatched
+			item.Info.PlayCount = 1
+			markAction = []string{markUnwatchedLabel, fmt.Sprintf("XBMC.RunPlugin(%s)", markUnwatchedURL)}
+		}
+
 		item.ContextMenu = [][]string{
 			libraryAction,
 			mergeAction,
 			watchlistAction,
 			collectionAction,
 			[]string{"LOCALIZE[30035]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/setviewmode/tvshows"))},
+			markAction,
 		}
 		if config.Get().Platform.Kodi < 17 {
 			item.ContextMenu = append(item.ContextMenu, []string{"LOCALIZE[30203]", "XBMC.Action(Info)"})
@@ -950,7 +1180,7 @@ func TraktHistoryShows(ctx *gin.Context) {
 }
 
 func TraktProgressShows(ctx *gin.Context) {
-	shows, err := trakt.WatchedProgressShows()
+	shows, err := trakt.WatchedShowsProgress()
 	if err != nil {
 		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
 	}
@@ -1136,14 +1366,28 @@ func renderCalendarShows(ctx *gin.Context, shows []*trakt.CalendarShow, total in
 			collectionAction = []string{"LOCALIZE[30259]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/show/%d/collection/remove", show.IDs.TMDB))}
 		}
 
+		markWatchedLabel := "LOCALIZE[30313]"
+		markWatchedURL := UrlForXBMC("/show/%d/trakt/watched", show.IDs.TMDB)
+		markUnwatchedLabel := "LOCALIZE[30314]"
+		markUnwatchedURL := UrlForXBMC("/show/%d/trakt/unwatched", show.IDs.TMDB)
+		markAction := []string{markWatchedLabel, fmt.Sprintf("XBMC.RunPlugin(%s)", markWatchedURL)}
+		if inShowsWatched(show.IDs.TMDB) {
+			item.Info.Overlay = xbmc.IconOverlayWatched
+			item.Info.PlayCount = 1
+			markAction = []string{markUnwatchedLabel, fmt.Sprintf("XBMC.RunPlugin(%s)", markUnwatchedURL)}
+		}
+
 		item.ContextMenu = [][]string{
 			libraryAction,
 			mergeAction,
 			watchlistAction,
 			collectionAction,
-			[]string{"LOCALIZE[30203]", "XBMC.Action(Info)"},
-			[]string{"LOCALIZE[30268]", "XBMC.Action(ToggleWatched)"},
 			[]string{"LOCALIZE[30035]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/setviewmode/tvshows"))},
+			markAction,
+		}
+		if config.Get().Platform.Kodi < 17 {
+			item.ContextMenu = append(item.ContextMenu, []string{"LOCALIZE[30203]", "XBMC.Action(Info)"})
+			item.ContextMenu = append(item.ContextMenu, []string{"LOCALIZE[30268]", "XBMC.Action(ToggleWatched)"})
 		}
 		item.IsPlayable = true
 

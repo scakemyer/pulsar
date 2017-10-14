@@ -182,6 +182,19 @@ func renderShows(ctx *gin.Context, shows tmdb.Shows, page int, total int, query 
 			collectionAction,
 			[]string{"LOCALIZE[30035]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/setviewmode/tvshows"))},
 		}
+		if config.Get().TraktToken != "" {
+			markWatchedLabel := "LOCALIZE[30313]"
+			markWatchedURL := UrlForXBMC("/show/%d/trakt/watched", show.Id)
+			markUnwatchedLabel := "LOCALIZE[30314]"
+			markUnwatchedURL := UrlForXBMC("/show/%d/trakt/unwatched", show.Id)
+			markAction := []string{markWatchedLabel, fmt.Sprintf("XBMC.RunPlugin(%s)", markWatchedURL)}
+			if inShowsWatched(show.Id) {
+				item.Info.Overlay = xbmc.IconOverlayWatched
+				item.Info.PlayCount = 1
+				markAction = []string{markUnwatchedLabel, fmt.Sprintf("XBMC.RunPlugin(%s)", markUnwatchedURL)}
+			}
+			item.ContextMenu = append(item.ContextMenu, markAction)
+		}
 		if config.Get().Platform.Kodi < 17 {
 			item.ContextMenu = append(item.ContextMenu, []string{"LOCALIZE[30203]", "XBMC.Action(Info)"})
 		}
@@ -287,6 +300,19 @@ func ShowSeasons(ctx *gin.Context) {
 		item.ContextMenu = [][]string{
 			[]string{"LOCALIZE[30202]", fmt.Sprintf("XBMC.PlayMedia(%s)", UrlForXBMC("/show/%d/season/%d/links", show.Id, item.Info.Season))},
 			[]string{"LOCALIZE[30036]", fmt.Sprintf("XBMC.RunPlugin(%s)", UrlForXBMC("/setviewmode/seasons"))},
+		}
+		if config.Get().TraktToken != "" {
+			markWatchedLabel := "LOCALIZE[30313]"
+			markWatchedURL := UrlForXBMC("/show/%d/season/%d/trakt/watched", show.Id, item.Info.Season)
+			markUnwatchedLabel := "LOCALIZE[30314]"
+			markUnwatchedURL := UrlForXBMC("/show/%d/season/%d/trakt/unwatched", show.Id, item.Info.Season)
+			markAction := []string{markWatchedLabel, fmt.Sprintf("XBMC.RunPlugin(%s)", markWatchedURL)}
+			if inSeasonsWatched(show.Id, item.Info.Season) {
+				item.Info.Overlay = xbmc.IconOverlayWatched
+				item.Info.PlayCount = 1
+				markAction = []string{markUnwatchedLabel, fmt.Sprintf("XBMC.RunPlugin(%s)", markUnwatchedURL)}
+			}
+			item.ContextMenu = append(item.ContextMenu, markAction)
 		}
 		reversedItems = append(reversedItems, item)
 	}

@@ -240,7 +240,7 @@ func WatchedMovies() (err error) {
 
 		for _, movie := range watchedMovies {
 			movieLog.Infof("setting %d as watched", movie.Movie.IDs.TMDB)
-			WatchedMoviesMap[WatchedMoviesCache{movie.Movie.IDs.TMDB}] = 1
+			WatchedMoviesMap[movie.Movie.IDs.TMDB] = true
 		}
 	}
 
