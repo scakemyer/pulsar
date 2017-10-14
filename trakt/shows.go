@@ -10,12 +10,15 @@ import (
 	"math/rand"
 	"sync"
 
+	"github.com/op/go-logging"
 	"github.com/jmcvetta/napping"
 	"github.com/charly3pins/quasar/config"
 	"github.com/charly3pins/quasar/cache"
 	"github.com/charly3pins/quasar/tmdb"
 	"github.com/charly3pins/quasar/xbmc"
 )
+
+var showLog = logging.MustGetLogger("show")
 
 // Fill fanart from TMDB
 func setShowFanart(show *Show) *Show {
@@ -510,36 +513,43 @@ func CalendarShows(endPoint string, page string) (shows []*CalendarShow, total i
 	return
 }
 
-func WatchedEpisodes() (watchedShows []*WatchedShow, err error) {
+func WatchedEpisodes() (err error) {
+	var watchedShows []*WatchedShow
 	if err := Authorized(); err != nil {
-		return watchedShows, err
+		return err
 	}
 
 	params := napping.Params{}.AsUrlValues()
 
 	endPoint := "sync/watched/shows"
 
-	cacheStore := cache.NewFileStore(path.Join(config.Get().ProfilePath, "cache"))
-	key := "com.trakt.episodes.watched"
-	if err := cacheStore.Get(key, &watchedShows); err != nil {
+	if len(WatchedEpisodesMap) == 0 {
 		resp, err := GetWithAuth(endPoint, params)
 
 		if err != nil {
-			return watchedShows, err
+			return err
 		} else if resp.Status() != 200 {
 			log.Error(err)
-			return watchedShows, errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
+			return errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
 		}
 
 		if err := resp.Unmarshal(&watchedShows); err != nil {
 			log.Warning(err)
 		}
 
-		cacheStore.Set(key, watchedShows, recentExpiration)
+		for _, show := range watchedShows {
+			for _, season := range show.Seasons {
+				for _, episode := range season.Episodes {
+					showLog.Infof("setting show: %d season: %d episode: %d as watched in cache", show.Show.IDs.TMDB, season.Number, episode.Number)
+					WatchedEpisodesMap[WatchedEpisodesCache{show.Show.IDs.TMDB, season.Number, episode.Number}] = 1
+				}
+			}
+                }
 	}
 
 	return
 }
+
 func WatchedShows() (shows []*Shows, err error) {
 	if err := Authorized(); err != nil {
 		return shows, err

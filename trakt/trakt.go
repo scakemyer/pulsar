@@ -40,6 +40,9 @@ var (
 
 var rateLimiter = util.NewRateLimiter(burstRate, burstTime, simultaneousConnections)
 
+var WatchedMoviesMap = make(map[WatchedMoviesCache]int)
+var WatchedEpisodesMap = make(map[WatchedEpisodesCache]int)
+
 type Object struct {
 	Title string `json:"title"`
 	Year  int    `json:"year"`
@@ -212,6 +215,16 @@ type WatchedProgressEpisodes struct {
 	Number	int	`json:"number"`
 	Completed	bool	`json:"completed"`
 	LastWatchedAt	string	`json:"last_watched_at"`
+}
+
+type WatchedMoviesCache struct {
+	ID	int
+}
+
+type WatchedEpisodesCache struct {
+	ShowId	int
+	SeasonNumber	int
+	EpisodeNumber	int
 }
 
 type ProgressShow struct {

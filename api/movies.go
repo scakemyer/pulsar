@@ -2,11 +2,11 @@ package api
 
 import (
 	"fmt"
-	"log"
 	"sort"
 	"strconv"
 	"strings"
 
+	"github.com/op/go-logging"
 	"github.com/gin-gonic/gin"
 	"github.com/charly3pins/quasar/bittorrent"
 	"github.com/charly3pins/quasar/providers"
@@ -15,6 +15,8 @@ import (
 	"github.com/charly3pins/quasar/tmdb"
 	"github.com/charly3pins/quasar/xbmc"
 )
+
+var moviesLog = logging.MustGetLogger("movies")
 
 // Maps TMDB movie genre ids to slugs for images
 var genreSlugs = map[int]string{
@@ -314,11 +316,11 @@ func SearchMovies(ctx *gin.Context) {
 }
 
 func movieLinks(tmdbId string) []*bittorrent.Torrent {
-	log.Println("Searching links for:", tmdbId)
+	moviesLog.Infof("Searching links for: %s", tmdbId)
 
 	movie := tmdb.GetMovieById(tmdbId, config.Get().Language)
 
-	log.Printf("Resolved %s to %s", tmdbId, movie.Title)
+	moviesLog.Infof("Resolved %s to %s", tmdbId, movie.Title)
 
 	searchers := providers.GetMovieSearchers()
 	if len(searchers) == 0 {

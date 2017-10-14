@@ -2,12 +2,12 @@ package api
 
 import (
 	"fmt"
-	"log"
 	"errors"
 	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
+	"github.com/op/go-logging"
 	"github.com/charly3pins/quasar/bittorrent"
 	"github.com/charly3pins/quasar/providers"
 	"github.com/charly3pins/quasar/config"
@@ -16,6 +16,7 @@ import (
 	"github.com/charly3pins/quasar/xbmc"
 )
 
+var showsLog = logging.MustGetLogger("shows")
 
 func TVIndex(ctx *gin.Context) {
 	items := xbmc.ListItems{
@@ -375,7 +376,7 @@ func ShowEpisodes(ctx *gin.Context) {
 }
 
 func showSeasonLinks(showId int, seasonNumber int) ([]*bittorrent.Torrent, error) {
-	log.Println("Searching links for TMDB Id:", showId)
+	showsLog.Infof("Searching links for TMDB Id: %d", showId)
 
 	show := tmdb.GetShow(showId, config.Get().Language)
 	if show == nil {
@@ -387,7 +388,7 @@ func showSeasonLinks(showId int, seasonNumber int) ([]*bittorrent.Torrent, error
 		return nil, errors.New("Unable to find season")
 	}
 
-	log.Printf("Resolved %d to %s", showId, show.Name)
+	showsLog.Infof("Resolved %d to %s", showId, show.Name)
 
 	searchers := providers.GetSeasonSearchers()
 	if len(searchers) == 0 {
@@ -520,7 +521,7 @@ func ShowSeasonLinks(btService *bittorrent.BTService, fromLibrary bool) gin.Hand
 }
 
 func showEpisodeLinks(showId int, seasonNumber int, episodeNumber int) ([]*bittorrent.Torrent, error) {
-	log.Println("Searching links for TMDB Id:", showId)
+	showsLog.Infof("Searching links for TMDB Id: %d", showId)
 
 	show := tmdb.GetShow(showId, config.Get().Language)
 	if show == nil {
@@ -534,7 +535,7 @@ func showEpisodeLinks(showId int, seasonNumber int, episodeNumber int) ([]*bitto
 
 	episode := season.Episodes[episodeNumber - 1]
 
-	log.Printf("Resolved %d to %s", showId, show.Name)
+	showsLog.Infof("Resolved %d to %s", showId, show.Name)
 
 	searchers := providers.GetEpisodeSearchers()
 	if len(searchers) == 0 {

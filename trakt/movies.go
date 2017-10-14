@@ -9,12 +9,15 @@ import (
 	"strings"
 	"math/rand"
 
+	"github.com/op/go-logging"
 	"github.com/jmcvetta/napping"
 	"github.com/charly3pins/quasar/config"
 	"github.com/charly3pins/quasar/cache"
 	"github.com/charly3pins/quasar/tmdb"
 	"github.com/charly3pins/quasar/xbmc"
 )
+
+var movieLog = logging.MustGetLogger("movie")
 
 // Fill fanart from TMDB
 func setFanart(movie *Movie) *Movie {
@@ -211,33 +214,34 @@ func TopMovies(topCategory string, page string) (movies []*Movies, total int, er
 	return
 }
 
-func WatchedMovies() (watchedMovies []*WatchedMovie, err error) {
+func WatchedMovies() (err error) {
+	var watchedMovies []*WatchedMovie
 	if err := Authorized(); err != nil {
-		return watchedMovies, err
+		return err
 	}
 
 	endPoint := "sync/watched/movies"
 
-	params := napping.Params{
-		"extended": "full,images",
-	}.AsUrlValues()
+	params := napping.Params{}.AsUrlValues()
 
-	cacheStore := cache.NewFileStore(path.Join(config.Get().ProfilePath, "cache"))
-	key := "com.trakt.movies.watched"
-	if err := cacheStore.Get(key, &watchedMovies); err != nil {
+	if len(WatchedMoviesMap) == 0 {
+		movieLog.Info("WatchedMoviesMap is emty, trying to populate")
 		resp, err := GetWithAuth(endPoint, params)
 
 		if err != nil {
-			return watchedMovies, err
+			return err
 		} else if resp.Status() != 200 {
-			return watchedMovies, errors.New(fmt.Sprintf("Bad status getting Trakt watched movies: %d", resp.Status()))
+			return errors.New(fmt.Sprintf("Bad status getting Trakt watched movies: %d", resp.Status()))
 		}
 
 		if err := resp.Unmarshal(&watchedMovies); err != nil {
 			log.Warning(err)
 		}
 
-		cacheStore.Set(key, watchedMovies, userlistExpiration)
+		for _, movie := range watchedMovies {
+			movieLog.Infof("setting %d as watched", movie.Movie.IDs.TMDB)
+			WatchedMoviesMap[WatchedMoviesCache{movie.Movie.IDs.TMDB}] = 1
+		}
 	}
 
 	return
