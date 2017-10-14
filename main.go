@@ -188,6 +188,8 @@ func main() {
 	go api.LibraryUpdate(db)
 	go api.LibraryListener()
 	go trakt.TokenRefreshHandler()
+	go trakt.WatchedShowsProgress()
+	go trakt.WatchedMovies()
 
 	http.ListenAndServe(":" + strconv.Itoa(config.ListenPort), nil)
 }
