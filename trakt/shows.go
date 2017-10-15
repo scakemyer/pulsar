@@ -11,7 +11,7 @@ import (
 	"sync"
 	"sort"
 
-	"github.com/op/go-logging"
+//	"github.com/op/go-logging"
 	"github.com/jmcvetta/napping"
 	"github.com/charly3pins/quasar/config"
 	"github.com/charly3pins/quasar/cache"
@@ -19,7 +19,7 @@ import (
 	"github.com/charly3pins/quasar/xbmc"
 )
 
-var showLog = logging.MustGetLogger("show")
+//var showLog = logging.MustGetLogger("show")
 
 // Fill fanart from TMDB
 func setShowFanart(show *Show) *Show {
@@ -636,7 +636,7 @@ func WatchedShowsProgress() (shows []*ProgressShow, err error) {
 			}
 			WatchedSeasonsMap[showId][season.Number] = AiredStatus{Aired: season.Aired, Completed: season.Completed}
 			for _, episode := range season.Episodes {
-				showLog.Infof("setting show: %d season: %d episode: %d watched: %t in cache", showId, season.Number, episode.Number, episode.Completed)
+				//showLog.Infof("setting show: %d season: %d episode: %d watched: %t in cache", showId, season.Number, episode.Number, episode.Completed)
 				if WatchedEpisodesMap[showId] == nil {
 					WatchedEpisodesMap[showId] = make(map[int]map[int]bool)
 					WatchedEpisodesMap[showId][season.Number] = make(map[int]bool)
@@ -708,7 +708,7 @@ func WatchedShowProgress(showId int) (err error) {
 		}
 		WatchedSeasonsMap[showId][season.Number] = AiredStatus{Aired: season.Aired, Completed: season.Completed}
 		for _, episode := range season.Episodes {
-			showLog.Infof("setting show: %d season: %d episode: %d watched: %t in cache", showId, season.Number, episode.Number, episode.Completed)
+			//showLog.Infof("setting show: %d season: %d episode: %d watched: %t in cache", showId, season.Number, episode.Number, episode.Completed)
 			if WatchedEpisodesMap[showId] == nil {
 				WatchedEpisodesMap[showId] = make(map[int]map[int]bool)
 				WatchedEpisodesMap[showId][season.Number] = make(map[int]bool)

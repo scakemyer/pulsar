@@ -231,6 +231,7 @@ func WatchedMovies() (err error) {
 		if err != nil {
 			return err
 		} else if resp.Status() != 200 {
+			movieLog.Infof("Bad status getting Trakt watched movies: %d", resp.Status())
 			return errors.New(fmt.Sprintf("Bad status getting Trakt watched movies: %d", resp.Status()))
 		}
 
@@ -239,7 +240,7 @@ func WatchedMovies() (err error) {
 		}
 
 		for _, movie := range watchedMovies {
-			movieLog.Infof("setting %d as watched", movie.Movie.IDs.TMDB)
+			//movieLog.Infof("setting %d as watched", movie.Movie.IDs.TMDB)
 			WatchedMoviesMap[movie.Movie.IDs.TMDB] = true
 		}
 	}
