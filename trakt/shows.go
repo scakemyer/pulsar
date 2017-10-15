@@ -9,6 +9,7 @@ import (
 	"strings"
 	"math/rand"
 	"sync"
+	"sort"
 
 	"github.com/op/go-logging"
 	"github.com/jmcvetta/napping"
@@ -572,7 +573,8 @@ func WatchedShowsProgress() (shows []*ProgressShow, err error) {
 		"count_specials": "true",
 	}.AsUrlValues()
 
-	showListing := make([]*ProgressShow, 0)
+	showListing := make(map[int]*ProgressShow, 0)
+	showListingSorted := make([]*ProgressShow, 0)
 	watchedProgressShows := make(map[int]*WatchedProgressShow, 0)
 
 	watchedShows, err := WatchedShows()
@@ -583,8 +585,8 @@ func WatchedShowsProgress() (shows []*ProgressShow, err error) {
 
 	wg.Add(len(watchedShows))
 
-	for _, show := range watchedShows {
-		go func(show *Shows) {
+	for i, show := range watchedShows {
+		go func(i int, show *Shows) {
 			defer wg.Done()
 			endPoint := fmt.Sprintf("shows/%s/progress/watched", show.Show.IDs.Slug)
 
@@ -601,6 +603,7 @@ func WatchedShowsProgress() (shows []*ProgressShow, err error) {
 				log.Warning(err)
 			}
 			
+			// Make sure only one thread writes into map
 			mapLock.Lock()
 			watchedProgressShows[show.Show.IDs.TMDB] = watchedProgressShow
 			mapLock.Unlock()
@@ -612,14 +615,18 @@ func WatchedShowsProgress() (shows []*ProgressShow, err error) {
 						Episode: &watchedProgressShow.NextEpisode,
 					}
 
-					showListing = append(showListing, &showItem)
+					// Make sure only one thread writes into map
+					mapLock.Lock()
+					showListing[i] = &showItem
+					mapLock.Unlock()
 				}
 			}
-		}(show)
+		}(i, show)
 	}
 
 	wg.Wait()
 
+	// Create Watched maps for shows/seasons/episodes
 	for showId, watchedProgressShow := range watchedProgressShows {
 		// Now we can populate all maps
 		WatchedShowsMap[showId] = AiredStatus{Aired: watchedProgressShow.Aired, Completed: watchedProgressShow.Completed}
@@ -641,7 +648,20 @@ func WatchedShowsProgress() (shows []*ProgressShow, err error) {
 		}
 	}
 
-	shows = showListing
+	// Now we want to rearrange the list, so it will be sorted as it came from Trakt
+	// It get's unsorted because of goroutines usage
+	var keys []int
+	for k, _ := range showListing {
+		keys = append(keys, k)
+	}
+	sort.Ints(keys)
+
+	// Create new list sorted as it came from Trakt
+	for _, k := range keys {
+		showListingSorted = append(showListingSorted, showListing[k])
+	}
+
+	shows = showListingSorted
 	shows = setProgressShowsFanart(shows)
 
 	return
