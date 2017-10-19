@@ -164,7 +164,7 @@ func (as *AddonSearcher) GetEpisodeSearchObject(show *tmdb.Show, episode *tmdb.E
 
 	// Is this an Anime?
 	absoluteNumber := 0
-	if util.StrInterfaceToInt(show.ExternalIDs.TVDBID) > 0 {
+	if tvdbId > 0 {
 		countryIsJP := false
 		for _, country := range show.OriginCountry {
 			if country == "JP" {
