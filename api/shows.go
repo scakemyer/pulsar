@@ -559,8 +559,17 @@ func showEpisodeLinks(showId int, seasonNumber int, episodeNumber int) ([]*bitto
 		return nil, errors.New("Unable to find season")
 	}
 
-	episode := season.Episodes[episodeNumber - 1]
-
+	var episode *tmdb.Episode
+	for _, epi := range season.Episodes {
+		if epi.EpisodeNumber == episodeNumber {
+			episode = epi
+			break
+		}
+	}
+	if episode == nil {
+		return nil, errors.New("Unable to find episode")
+	}
+			
 	showsLog.Infof("Resolved %d to %s", showId, show.Name)
 
 	searchers := providers.GetEpisodeSearchers()
