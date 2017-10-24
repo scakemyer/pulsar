@@ -701,14 +701,7 @@ func (btp *BTPlayer) Close() {
 
 	}
 
-	progress := WatchedTime / VideoDuration * 100
-	if progress >= 80 {
-		if btp.contentType == "episode" {
-			trakt.AddEpisodeToWatchedHistory(btp.showId, btp.season, btp.episode)
-		} else if btp.contentType == "movie" {
-			trakt.AddMovieToWatchedHistory(btp.tmdbId)
-		}
-	}
+	xbmc.Refresh()
 }
 
 func (btp *BTPlayer) consumeAlerts() {
@@ -1021,6 +1014,18 @@ playbackLoop:
 	if btp.scrobble {
 		trakt.Scrobble("stop", btp.contentType, btp.tmdbId, WatchedTime, VideoDuration)
 	}
+
+	progress := WatchedTime / VideoDuration * 100
+	if progress >= 80 {
+		if btp.contentType == "episode" {
+			trakt.AddEpisodeToWatchedHistory(btp.showId, btp.season, btp.episode)
+			btp.log.Infof("adding show %+v, season %+v, episode %+v to watched history", btp.showId, btp.season, btp.episode)
+		} else if btp.contentType == "movie" {
+			trakt.AddMovieToWatchedHistory(btp.tmdbId)
+			btp.log.Infof("adding movie %+v to watched history", btp.tmdbId)
+		}
+	}
+
 	Paused = false
 	Seeked = false
 	Playing = false
