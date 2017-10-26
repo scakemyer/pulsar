@@ -1016,6 +1016,7 @@ playbackLoop:
 	}
 
 	progress := WatchedTime / VideoDuration * 100
+	btp.log.Infof("progress: %+v, btp.contentType: %+v", progress, btp.contentType)
 	if progress >= 80 {
 		if btp.contentType == "episode" {
 			trakt.AddEpisodeToWatchedHistory(btp.showId, btp.season, btp.episode)
