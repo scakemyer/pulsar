@@ -176,7 +176,7 @@ libs: force
 
 binaries:
 	git config --global push.default simple
-	git clone --depth=1 https://github.com/keyos1/quasar-binaries binaries
+	git clone --depth=1 https://github.com/charly3pins/quasar-binaries binaries
 	cp -Rf build/* binaries/
 	cd binaries && git add * && git commit -m "Update to ${GIT_VERSION}"
 
