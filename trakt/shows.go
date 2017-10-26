@@ -533,7 +533,7 @@ func WatchedShows() (shows []*Shows, err error) {
 		if err != nil {
 			return shows, err
 		} else if resp.Status() != 200 {
-			log.Error("Got %d response status getting endpoint ", resp.Status())
+			log.Error("Bad response ", resp.Status(), " getting watched shows")
 			return shows, errors.New(fmt.Sprintf("Bad status getting Trakt watched shows: %d", resp.Status()))
 		}
 
