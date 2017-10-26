@@ -830,9 +830,9 @@ func AddEpisodeToWatchedHistory(showId, season, episode int) {
 
 	endPoint := "sync/history"
 	payload := fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d}, "seasons": [{ "number": %d, "episodes": [{"watched_at": "%s", "number": %d }]}]}]}`, showId, season, time.Now().Format("20060102-15:04:05.000"), episode)
-	log.Noticef("Calling endpoint: ", endPoint, "\npayload: ", payload)
+	//log.Noticef("Calling endpoint: ", endPoint, "\npayload: ", payload)
 	resp, err := Post(endPoint, bytes.NewBufferString(payload))
-	log.Noticef(resp.RawText())
+	//log.Noticef(resp.RawText())
 	if err != nil {
 		log.Error(err.Error())
 		xbmc.Notify("Quasar", "AddEpisodeToWatchedHistory failed, check your logs.", config.AddonIcon())
@@ -848,9 +848,9 @@ func AddMovieToWatchedHistory(movie int) {
 
 	endPoint := "sync/history"
 	payload := fmt.Sprintf(`{"movies": [{ "watched_at": "%s", "ids": {"tmdb": %d }}]}`, time.Now().Format("20060102-15:04:05.000"), movie)
-	log.Noticef("Calling endpoint: ", endPoint, "\npayload: ", payload)
+	//log.Noticef("Calling endpoint: ", endPoint, "\npayload: ", payload)
 	resp, err := Post(endPoint, bytes.NewBufferString(payload))
-	log.Noticef(resp.RawText())
+	//log.Noticef(resp.RawText())
 	if err != nil {
 		log.Error(err.Error())
 		xbmc.Notify("Quasar", "AddMovieToWatchedHistory failed, check your logs.", config.AddonIcon())
