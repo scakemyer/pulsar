@@ -43,12 +43,12 @@ func MakeQuasarRepositoryAddon() error {
 				Point: "xbmc.addon.repository",
 				Name:  addonName,
 				Info: &xbmc.AddonRepositoryInfo{
-					Text:       quasarHost + "/repository/scakemyer/plugin.video.quasar/addons.xml",
+					Text:       quasarHost + "/repository/charly3pins/plugin.video.quasar/addons.xml",
 					Compressed: false,
 				},
-				Checksum: quasarHost + "/repository/scakemyer/plugin.video.quasar/addons.xml.md5",
+				Checksum: quasarHost + "/repository/charly3pins/plugin.video.quasar/addons.xml.md5",
 				Datadir: &xbmc.AddonRepositoryDataDir{
-					Text: quasarHost + "/repository/scakemyer/",
+					Text: quasarHost + "/repository/charly3pins/",
 					Zip:  true,
 				},
 			},
