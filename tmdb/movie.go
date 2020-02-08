@@ -2,24 +2,19 @@ package tmdb
 
 import (
 	"fmt"
+	"math/rand"
 	"path"
-	"sync"
-	"time"
 	"strconv"
 	"strings"
-	"math/rand"
+	"sync"
+	"time"
+
+	"github.com/charly3pins/magnetar/cache"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/xbmc"
 
 	"github.com/jmcvetta/napping"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/cache"
-	"github.com/scakemyer/quasar/xbmc"
 )
-
-// Unused...
-type ByPopularity Movies
-func (a ByPopularity) Len() int           { return len(a) }
-func (a ByPopularity) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
-func (a ByPopularity) Less(i, j int) bool { return a[i].Popularity < a[j].Popularity }
 
 func GetImages(movieId int) *Images {
 	var images *Images
@@ -28,18 +23,18 @@ func GetImages(movieId int) *Images {
 	if err := cacheStore.Get(key, &images); err != nil {
 		rateLimiter.Call(func() {
 			urlValues := napping.Params{
-				"api_key": apiKey,
+				"api_key":                apiKey,
 				"include_image_language": fmt.Sprintf("%s,en,null", config.Get().Language),
 			}.AsUrlValues()
 			resp, err := napping.Get(
-				tmdbEndpoint + "movie/" + strconv.Itoa(movieId) + "/images",
+				tmdbEndpoint+"movie/"+strconv.Itoa(movieId)+"/images",
 				&urlValues,
 				&images,
 				nil,
 			)
 			if err != nil {
 				log.Error(err)
-				xbmc.Notify("Quasar", fmt.Sprintf("Failed getting images for movie %d, check your logs.", movieId), config.AddonIcon())
+				xbmc.Notify("Magnetar", fmt.Sprintf("Failed getting images for movie %d, check your logs.", movieId), config.AddonIcon())
 			} else if resp.Status() == 429 {
 				log.Warningf("Rate limit exceeded getting images for %d, cooling down...", movieId)
 				rateLimiter.CoolDown(resp.HttpResponse().Header)
@@ -65,26 +60,26 @@ func GetMovieById(movieId string, language string) *Movie {
 	if err := cacheStore.Get(key, &movie); err != nil {
 		rateLimiter.Call(func() {
 			urlValues := napping.Params{
-				"api_key": apiKey,
+				"api_key":            apiKey,
 				"append_to_response": "credits,images,alternative_titles,translations,external_ids,trailers,release_dates",
-				"language": language,
+				"language":           language,
 			}.AsUrlValues()
 			resp, err := napping.Get(
-				tmdbEndpoint + "movie/" + movieId,
+				tmdbEndpoint+"movie/"+movieId,
 				&urlValues,
 				&movie,
 				nil,
 			)
 			if err != nil {
 				log.Error(err)
-				xbmc.Notify("Quasar", fmt.Sprintf("Failed getting movie %s, check your logs.", movieId), config.AddonIcon())
+				xbmc.Notify("Magnetar", fmt.Sprintf("Failed getting movie %s, check your logs.", movieId), config.AddonIcon())
 			} else if resp.Status() == 429 {
 				log.Warningf("Rate limit exceeded getting movie %s, cooling down...", movieId)
 				rateLimiter.CoolDown(resp.HttpResponse().Header)
 			} else if resp.Status() != 200 {
 				message := fmt.Sprintf("Bad status getting movie %s: %d", movieId, resp.Status())
 				log.Error(message)
-				xbmc.Notify("Quasar", message, config.AddonIcon())
+				xbmc.Notify("Magnetar", message, config.AddonIcon())
 			}
 			if movie != nil {
 				cacheStore.Set(key, movie, cacheExpiration)
@@ -126,25 +121,25 @@ func GetMovieGenres(language string) []*Genre {
 	if err := cacheStore.Get(key, &genres); err != nil {
 		rateLimiter.Call(func() {
 			urlValues := napping.Params{
-				"api_key": apiKey,
+				"api_key":  apiKey,
 				"language": language,
 			}.AsUrlValues()
 			resp, err := napping.Get(
-				tmdbEndpoint + "genre/movie/list",
+				tmdbEndpoint+"genre/movie/list",
 				&urlValues,
 				&genres,
 				nil,
 			)
 			if err != nil {
 				log.Error(err)
-				xbmc.Notify("Quasar", "Failed getting movie genres, check your logs.", config.AddonIcon())
+				xbmc.Notify("Magnetar", "Failed getting movie genres, check your logs.", config.AddonIcon())
 			} else if resp.Status() == 429 {
 				log.Warning("Rate limit exceeded getting genres, cooling down...")
 				rateLimiter.CoolDown(resp.HttpResponse().Header)
 			} else if resp.Status() != 200 {
 				message := fmt.Sprintf("Bad status getting movie genres: %d", resp.Status())
 				log.Error(message)
-				xbmc.Notify("Quasar", message, config.AddonIcon())
+				xbmc.Notify("Magnetar", message, config.AddonIcon())
 			}
 		})
 		if genres.Genres != nil && len(genres.Genres) > 0 {
@@ -160,25 +155,25 @@ func SearchMovies(query string, language string, page int) (Movies, int) {
 	rateLimiter.Call(func() {
 		urlValues := napping.Params{
 			"api_key": apiKey,
-			"query": query,
-			"page": strconv.Itoa(page),
+			"query":   query,
+			"page":    strconv.Itoa(page),
 		}.AsUrlValues()
 		resp, err := napping.Get(
-			tmdbEndpoint + "search/movie",
+			tmdbEndpoint+"search/movie",
 			&urlValues,
 			&results,
 			nil,
 		)
 		if err != nil {
 			log.Error(err)
-			xbmc.Notify("Quasar", "Failed searching movies, check your logs.", config.AddonIcon())
+			xbmc.Notify("Magnetar", "Failed searching movies, check your logs.", config.AddonIcon())
 		} else if resp.Status() == 429 {
 			log.Warningf("Rate limit exceeded searching movies with %s", query)
 			rateLimiter.CoolDown(resp.HttpResponse().Header)
 		} else if resp.Status() != 200 {
 			message := fmt.Sprintf("Bad status searching movies: %d", resp.Status())
 			log.Error(message)
-			xbmc.Notify("Quasar", message, config.AddonIcon())
+			xbmc.Notify("Magnetar", message, config.AddonIcon())
 		}
 	})
 	tmdbIds := make([]int, 0, len(results.Results))
@@ -193,7 +188,7 @@ func GetIMDBList(listId string, language string, page int) (movies Movies, total
 	totalResults = -1
 	resultsPerPage := config.Get().ResultsPerPage
 	limit := resultsPerPage * PagesAtOnce
-	pageGroup := (page - 1) * resultsPerPage / limit + 1
+	pageGroup := (page-1)*resultsPerPage/limit + 1
 
 	cacheStore := cache.NewFileStore(path.Join(config.Get().ProfilePath, "cache"))
 	key := fmt.Sprintf("com.imdb.list.%s.%d", listId, pageGroup)
@@ -204,21 +199,21 @@ func GetIMDBList(listId string, language string, page int) (movies Movies, total
 				"api_key": apiKey,
 			}.AsUrlValues()
 			resp, err := napping.Get(
-				tmdbEndpoint + "list/" + listId,
+				tmdbEndpoint+"list/"+listId,
 				&urlValues,
 				&results,
 				nil,
 			)
 			if err != nil {
 				log.Error(err)
-				xbmc.Notify("Quasar", "Failed getting IMDb list, check your logs.", config.AddonIcon())
+				xbmc.Notify("Magnetar", "Failed getting IMDb list, check your logs.", config.AddonIcon())
 			} else if resp.Status() == 429 {
 				log.Warning("Rate limit exceeded getting IMDb list, cooling down...")
 				rateLimiter.CoolDown(resp.HttpResponse().Header)
 			} else if resp.Status() != 200 {
 				message := fmt.Sprintf("Bad status getting IMDb list: %d", resp.Status())
 				log.Error(message + fmt.Sprintf(" (%s)", listId))
-				xbmc.Notify("Quasar", message, config.AddonIcon())
+				xbmc.Notify("Magnetar", message, config.AddonIcon())
 			}
 		})
 		tmdbIds := make([]int, 0)
@@ -230,10 +225,10 @@ func GetIMDBList(listId string, language string, page int) (movies Movies, total
 		}
 		movies = GetMovies(tmdbIds, language)
 		if movies != nil && len(movies) > 0 {
-			cacheStore.Set(key, movies, cacheExpiration * 4)
+			cacheStore.Set(key, movies, cacheExpiration*4)
 		}
 		totalResults = results.ItemCount
-		cacheStore.Set(totalKey, totalResults, cacheExpiration * 4)
+		cacheStore.Set(totalKey, totalResults, cacheExpiration*4)
 	} else {
 		if err := cacheStore.Get(totalKey, &totalResults); err != nil {
 			totalResults = -1
@@ -250,7 +245,7 @@ func listMovies(endpoint string, cacheKey string, params napping.Params, page in
 		genre = "all"
 	}
 	limit := ResultsPerPage * PagesAtOnce
-	pageGroup := (page - 1) * ResultsPerPage / limit + 1
+	pageGroup := (page-1)*ResultsPerPage/limit + 1
 
 	movies := make(Movies, limit)
 
@@ -261,7 +256,7 @@ func listMovies(endpoint string, cacheKey string, params napping.Params, page in
 		wg := sync.WaitGroup{}
 		for p := 0; p < PagesAtOnce; p++ {
 			wg.Add(1)
-			currentPage := (pageGroup - 1) * ResultsPerPage + p + 1
+			currentPage := (pageGroup-1)*ResultsPerPage + p + 1
 			go func(p int) {
 				defer wg.Done()
 				var results *EntityList
@@ -274,21 +269,21 @@ func listMovies(endpoint string, cacheKey string, params napping.Params, page in
 				urlParams := pageParams.AsUrlValues()
 				rateLimiter.Call(func() {
 					resp, err := napping.Get(
-						tmdbEndpoint + endpoint,
+						tmdbEndpoint+endpoint,
 						&urlParams,
 						&results,
 						nil,
 					)
 					if err != nil {
 						log.Error(err)
-						xbmc.Notify("Quasar", "Failed while listing movies, check your logs.", config.AddonIcon())
+						xbmc.Notify("Magnetar", "Failed while listing movies, check your logs.", config.AddonIcon())
 					} else if resp.Status() == 429 {
 						log.Warningf("Rate limit exceeded listing movies from %s, cooling down...", endpoint)
 						rateLimiter.CoolDown(resp.HttpResponse().Header)
 					} else if resp.Status() != 200 {
 						message := fmt.Sprintf("Bad status while listing movies from %s: %d", endpoint, resp.Status())
 						log.Error(message + fmt.Sprintf(" (%s)", endpoint))
-						xbmc.Notify("Quasar", message, config.AddonIcon())
+						xbmc.Notify("Magnetar", message, config.AddonIcon())
 					}
 				})
 				if results != nil {
@@ -297,7 +292,7 @@ func listMovies(endpoint string, cacheKey string, params napping.Params, page in
 						cacheStore.Set(totalKey, totalResults, recentExpiration)
 					}
 					for m, movie := range results.Results {
-						movies[p * ResultsPerPage + m] = GetMovie(movie.Id, params["language"])
+						movies[p*ResultsPerPage+m] = GetMovie(movie.Id, params["language"])
 					}
 				}
 			}(p)
@@ -384,7 +379,7 @@ func (movie *Movie) ToListItem() *xbmc.ListItem {
 	}
 
 	item := &xbmc.ListItem{
-		Label: title,
+		Label:  title,
 		Label2: fmt.Sprintf("%f", movie.VoteAverage),
 		Info: &xbmc.ListItemInfo{
 			Year:          year,

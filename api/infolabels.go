@@ -1,16 +1,17 @@
 package api
 
 import (
-	"errors"
-	"strings"
-	"strconv"
 	"encoding/json"
+	"errors"
+	"strconv"
+	"strings"
+
+	"github.com/charly3pins/magnetar/bittorrent"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/tmdb"
+	"github.com/charly3pins/magnetar/xbmc"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scakemyer/quasar/bittorrent"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/tmdb"
-	"github.com/scakemyer/quasar/xbmc"
 )
 
 var (
@@ -20,7 +21,6 @@ var (
 		"ListItem.Mediatype",
 		"ListItem.TMDB",
 		"ListItem.UniqueId",
-
 		"ListItem.Label",
 		"ListItem.Label2",
 		"ListItem.ThumbnailImage",

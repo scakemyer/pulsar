@@ -1,17 +1,20 @@
 package api
 
 import (
-	"fmt"
-	"log"
-	"errors"
-	"strconv"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
+
+	"github.com/charly3pins/magnetar/providers"
+	"github.com/charly3pins/magnetar/tmdb"
+	"github.com/charly3pins/magnetar/xbmc"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scakemyer/quasar/providers"
-	"github.com/scakemyer/quasar/tmdb"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/op/go-logging"
 )
+
+var providerLog = logging.MustGetLogger("provider")
 
 type providerDebugResponse struct {
 	Payload interface{} `json:"payload"`
@@ -21,9 +24,9 @@ type providerDebugResponse struct {
 func ProviderGetMovie(ctx *gin.Context) {
 	tmdbId := ctx.Params.ByName("tmdbId")
 	provider := ctx.Params.ByName("provider")
-	log.Println("Searching links for:", tmdbId)
+	providerLog.Infof("Searching links for: %s", tmdbId)
 	movie := tmdb.GetMovieById(tmdbId, "en")
-	log.Printf("Resolved %s to %s", tmdbId, movie.Title)
+	providerLog.Infof("Resolved %s to %s", tmdbId, movie.Title)
 
 	searcher := providers.NewAddonSearcher(provider)
 	torrents := searcher.SearchMovieLinks(movie)
@@ -49,7 +52,7 @@ func ProviderGetEpisode(ctx *gin.Context) {
 	seasonNumber, _ := strconv.Atoi(ctx.Params.ByName("season"))
 	episodeNumber, _ := strconv.Atoi(ctx.Params.ByName("episode"))
 
-	log.Println("Searching links for TMDB Id:", showId)
+	providerLog.Infof("Searching links for TMDB Id: %s", showId)
 
 	show := tmdb.GetShow(showId, "en")
 	season := tmdb.GetSeason(showId, seasonNumber, "en")
@@ -57,9 +60,9 @@ func ProviderGetEpisode(ctx *gin.Context) {
 		ctx.Error(errors.New(fmt.Sprintf("Unable to get season %d", seasonNumber)))
 		return
 	}
-	episode := season.Episodes[episodeNumber - 1]
+	episode := season.Episodes[episodeNumber-1]
 
-	log.Printf("Resolved %d to %s", showId, show.Name)
+	providerLog.Infof("Resolved %d to %s", showId, show.Name)
 
 	searcher := providers.NewAddonSearcher(provider)
 	torrents := searcher.SearchEpisodeLinks(show, episode)

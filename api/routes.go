@@ -2,19 +2,20 @@ package api
 
 import (
 	"fmt"
-	"path"
-	"time"
-	"net/url"
 	"net/http"
+	"net/url"
+	"path"
 	"path/filepath"
+	"time"
+
+	"github.com/charly3pins/magnetar/api/repository"
+	"github.com/charly3pins/magnetar/bittorrent"
+	"github.com/charly3pins/magnetar/cache"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/providers"
+	"github.com/charly3pins/magnetar/util"
 
 	"github.com/gin-gonic/gin"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/cache"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/providers"
-	"github.com/scakemyer/quasar/bittorrent"
-	"github.com/scakemyer/quasar/api/repository"
 )
 
 const (
@@ -44,7 +45,7 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 		web.GET("/", func(c *gin.Context) {
 			c.HTML(http.StatusOK, "index.html", nil)
 		})
-	  web.Static("/static", filepath.Join(config.Get().Info.Path, "resources", "web", "static"))
+		web.Static("/static", filepath.Join(config.Get().Info.Path, "resources", "web", "static"))
 		web.StaticFile("/favicon.ico", filepath.Join(config.Get().Info.Path, "resources", "web", "favicon.ico"))
 	}
 
@@ -67,27 +68,27 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 	{
 		movies.GET("/", cache.Cache(store, IndexCacheExpiration), MoviesIndex)
 		movies.GET("/search", SearchMovies)
-		movies.GET("/popular", cache.Cache(store, RecentCacheExpiration), PopularMovies)
-		movies.GET("/popular/:genre", cache.Cache(store, RecentCacheExpiration), PopularMovies)
-		movies.GET("/recent", cache.Cache(store, RecentCacheExpiration), RecentMovies)
-		movies.GET("/recent/:genre", cache.Cache(store, RecentCacheExpiration), RecentMovies)
-		movies.GET("/top", cache.Cache(store, DefaultCacheExpiration), TopRatedMovies)
-		movies.GET("/imdb250", cache.Cache(store, DefaultCacheExpiration), IMDBTop250)
-		movies.GET("/mostvoted", cache.Cache(store, DefaultCacheExpiration), MoviesMostVoted)
-		movies.GET("/genres", cache.Cache(store, IndexCacheExpiration), MovieGenres)
+		movies.GET("/popular", PopularMovies)
+		movies.GET("/popular/:genre", PopularMovies)
+		movies.GET("/recent", RecentMovies)
+		movies.GET("/recent/:genre", RecentMovies)
+		movies.GET("/top", TopRatedMovies)
+		movies.GET("/imdb250", IMDBTop250)
+		movies.GET("/mostvoted", MoviesMostVoted)
+		movies.GET("/genres", MovieGenres)
 
 		trakt := movies.Group("/trakt")
 		{
 			trakt.GET("/", cache.Cache(store, IndexCacheExpiration), MoviesTrakt)
 			trakt.GET("/watchlist", WatchlistMovies)
 			trakt.GET("/collection", CollectionMovies)
-			trakt.GET("/popular", cache.Cache(store, DefaultCacheExpiration), TraktPopularMovies)
-			trakt.GET("/trending", cache.Cache(store, RecentCacheExpiration), TraktTrendingMovies)
-			trakt.GET("/played", cache.Cache(store, DefaultCacheExpiration), TraktMostPlayedMovies)
-			trakt.GET("/watched", cache.Cache(store, DefaultCacheExpiration), TraktMostWatchedMovies)
-			trakt.GET("/collected", cache.Cache(store, DefaultCacheExpiration), TraktMostCollectedMovies)
-			trakt.GET("/anticipated", cache.Cache(store, DefaultCacheExpiration), TraktMostAnticipatedMovies)
-			trakt.GET("/boxoffice", cache.Cache(store, DefaultCacheExpiration), TraktBoxOffice)
+			trakt.GET("/popular", TraktPopularMovies)
+			trakt.GET("/trending", TraktTrendingMovies)
+			trakt.GET("/played", TraktMostPlayedMovies)
+			trakt.GET("/watched", TraktMostWatchedMovies)
+			trakt.GET("/collected", TraktMostCollectedMovies)
+			trakt.GET("/anticipated", TraktMostAnticipatedMovies)
+			trakt.GET("/boxoffice", TraktBoxOffice)
 
 			lists := trakt.Group("/lists")
 			{
@@ -97,11 +98,11 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 
 			calendars := trakt.Group("/calendars")
 			{
-				calendars.GET("/", cache.Cache(store, IndexCacheExpiration), CalendarMovies)
-				calendars.GET("/movies", cache.Cache(store, RecentCacheExpiration), TraktMyMovies)
-				calendars.GET("/releases", cache.Cache(store, RecentCacheExpiration), TraktMyReleases)
-				calendars.GET("/allmovies", cache.Cache(store, RecentCacheExpiration), TraktAllMovies)
-				calendars.GET("/allreleases", cache.Cache(store, RecentCacheExpiration), TraktAllReleases)
+				calendars.GET("/", CalendarMovies)
+				calendars.GET("/movies", TraktMyMovies)
+				calendars.GET("/releases", TraktMyReleases)
+				calendars.GET("/allmovies", TraktAllMovies)
+				calendars.GET("/allreleases", TraktAllReleases)
 			}
 		}
 	}
@@ -114,33 +115,37 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 		movie.GET("/:tmdbId/watchlist/remove", RemoveMovieFromWatchlist)
 		movie.GET("/:tmdbId/collection/add", AddMovieToCollection)
 		movie.GET("/:tmdbId/collection/remove", RemoveMovieFromCollection)
+		movie.GET("/:tmdbId/trakt/watched", MarkMovieWatchedInTrakt)
+		movie.GET("/:tmdbId/trakt/unwatched", MarkMovieUnwatchedInTrakt)
 	}
 
 	shows := r.Group("/shows")
 	{
 		shows.GET("/", cache.Cache(store, IndexCacheExpiration), TVIndex)
 		shows.GET("/search", SearchShows)
-		shows.GET("/popular", cache.Cache(store, RecentCacheExpiration), PopularShows)
-		shows.GET("/popular/:genre", cache.Cache(store, RecentCacheExpiration), PopularShows)
-		shows.GET("/recent/shows", cache.Cache(store, DefaultCacheExpiration), RecentShows)
-		shows.GET("/recent/shows/:genre", cache.Cache(store, DefaultCacheExpiration), RecentShows)
-		shows.GET("/recent/episodes", cache.Cache(store, RecentCacheExpiration), RecentEpisodes)
-		shows.GET("/recent/episodes/:genre", cache.Cache(store, RecentCacheExpiration), RecentEpisodes)
-		shows.GET("/top", cache.Cache(store, DefaultCacheExpiration), TopRatedShows)
-		shows.GET("/mostvoted", cache.Cache(store, DefaultCacheExpiration), TVMostVoted)
-		shows.GET("/genres", cache.Cache(store, IndexCacheExpiration), TVGenres)
+		shows.GET("/popular", PopularShows)
+		shows.GET("/popular/:genre", PopularShows)
+		shows.GET("/recent/shows", RecentShows)
+		shows.GET("/recent/shows/:genre", RecentShows)
+		shows.GET("/recent/episodes", RecentEpisodes)
+		shows.GET("/recent/episodes/:genre", RecentEpisodes)
+		shows.GET("/top", TopRatedShows)
+		shows.GET("/mostvoted", TVMostVoted)
+		shows.GET("/genres", TVGenres)
 
 		trakt := shows.Group("/trakt")
 		{
 			trakt.GET("/", cache.Cache(store, IndexCacheExpiration), TVTrakt)
 			trakt.GET("/watchlist", WatchlistShows)
 			trakt.GET("/collection", CollectionShows)
-			trakt.GET("/popular", cache.Cache(store, DefaultCacheExpiration), TraktPopularShows)
-			trakt.GET("/trending", cache.Cache(store, RecentCacheExpiration), TraktTrendingShows)
-			trakt.GET("/played", cache.Cache(store, DefaultCacheExpiration), TraktMostPlayedShows)
-			trakt.GET("/watched", cache.Cache(store, DefaultCacheExpiration), TraktMostWatchedShows)
-			trakt.GET("/collected", cache.Cache(store, DefaultCacheExpiration), TraktMostCollectedShows)
-			trakt.GET("/anticipated", cache.Cache(store, DefaultCacheExpiration), TraktMostAnticipatedShows)
+			trakt.GET("/popular", TraktPopularShows)
+			trakt.GET("/trending", TraktTrendingShows)
+			trakt.GET("/played", TraktMostPlayedShows)
+			trakt.GET("/watched", TraktMostWatchedShows)
+			trakt.GET("/collected", TraktMostCollectedShows)
+			trakt.GET("/anticipated", TraktMostAnticipatedShows)
+			trakt.GET("/history", TraktHistoryShows)
+			trakt.GET("/progress", TraktProgressShows)
 
 			lists := trakt.Group("/lists")
 			{
@@ -150,21 +155,21 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 
 			calendars := trakt.Group("/calendars")
 			{
-				calendars.GET("/", cache.Cache(store, IndexCacheExpiration), CalendarShows)
-				calendars.GET("/shows", cache.Cache(store, RecentCacheExpiration), TraktMyShows)
-				calendars.GET("/newshows", cache.Cache(store, RecentCacheExpiration), TraktMyNewShows)
-				calendars.GET("/premieres", cache.Cache(store, RecentCacheExpiration), TraktMyPremieres)
-				calendars.GET("/allshows", cache.Cache(store, RecentCacheExpiration), TraktAllShows)
-				calendars.GET("/allnewshows", cache.Cache(store, RecentCacheExpiration), TraktAllNewShows)
-				calendars.GET("/allpremieres", cache.Cache(store, RecentCacheExpiration), TraktAllPremieres)
+				calendars.GET("/", CalendarShows)
+				calendars.GET("/shows", TraktMyShows)
+				calendars.GET("/newshows", TraktMyNewShows)
+				calendars.GET("/premieres", TraktMyPremieres)
+				calendars.GET("/allshows", TraktAllShows)
+				calendars.GET("/allnewshows", TraktAllNewShows)
+				calendars.GET("/allpremieres", TraktAllPremieres)
 			}
 		}
 	}
 	show := r.Group("/show")
 	{
-		show.GET("/:showId/seasons", cache.Cache(store, DefaultCacheExpiration), ShowSeasons)
+		show.GET("/:showId/seasons", ShowSeasons)
 		show.GET("/:showId/season/:season/links", ShowSeasonLinks(btService, false))
-		show.GET("/:showId/season/:season/episodes", cache.Cache(store, RecentCacheExpiration), ShowEpisodes)
+		show.GET("/:showId/season/:season/episodes", ShowEpisodes)
 		show.GET("/:showId/season/:season/episode/:episode/infolabels", InfoLabelsEpisode(btService))
 		show.GET("/:showId/season/:season/episode/:episode/play", ShowEpisodePlay(btService, false))
 		show.GET("/:showId/season/:season/episode/:episode/links", ShowEpisodeLinks(btService, false))
@@ -172,6 +177,12 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 		show.GET("/:showId/watchlist/remove", RemoveShowFromWatchlist)
 		show.GET("/:showId/collection/add", AddShowToCollection)
 		show.GET("/:showId/collection/remove", RemoveShowFromCollection)
+		show.GET("/:showId/trakt/watched", MarkShowWatchedInTrakt)
+		show.GET("/:showId/trakt/unwatched", MarkShowUnwatchedInTrakt)
+		show.GET("/:showId/season/:season/trakt/watched", MarkSeasonWatchedInTrakt)
+		show.GET("/:showId/season/:season/trakt/unwatched", MarkSeasonUnwatchedInTrakt)
+		show.GET("/:showId/season/:season/episode/:episode/trakt/watched", MarkEpisodeWatchedInTrakt)
+		show.GET("/:showId/season/:season/episode/:episode/trakt/unwatched", MarkEpisodeUnwatchedInTrakt)
 	}
 	// TODO
 	// episode := r.Group("/episode")
@@ -228,8 +239,6 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 	}
 
 	r.GET("/setviewmode/:content_type", SetViewMode)
-
-	r.GET("/youtube/:id", PlayYoutubeVideo)
 
 	r.GET("/subtitles", SubtitlesIndex)
 	r.GET("/subtitle/:id", SubtitleGet)

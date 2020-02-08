@@ -3,9 +3,10 @@ package api
 import (
 	"strconv"
 
+	"github.com/charly3pins/magnetar/bittorrent"
+	"github.com/charly3pins/magnetar/broadcast"
+
 	"github.com/op/go-logging"
-	"github.com/scakemyer/quasar/broadcast"
-	"github.com/scakemyer/quasar/bittorrent"
 )
 
 var (

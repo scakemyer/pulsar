@@ -10,14 +10,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/charly3pins/magnetar/bittorrent"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/tmdb"
+	"github.com/charly3pins/magnetar/tvdb"
+	"github.com/charly3pins/magnetar/util"
+	"github.com/charly3pins/magnetar/xbmc"
 	"github.com/gin-gonic/gin"
 	"github.com/op/go-logging"
-	"github.com/scakemyer/quasar/bittorrent"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/tmdb"
-	"github.com/scakemyer/quasar/tvdb"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
 )
 
 const (
@@ -72,7 +72,7 @@ func CallbackHandler(ctx *gin.Context) {
 func getSearchers() []interface{} {
 	list := make([]interface{}, 0)
 	for _, addon := range xbmc.GetAddons("xbmc.python.script", "executable", true).Addons {
-		if strings.HasPrefix(addon.ID, "script.quasar.") {
+		if strings.HasPrefix(addon.ID, "script.magnetar.") {
 			list = append(list, NewAddonSearcher(addon.ID))
 		}
 	}
@@ -120,10 +120,11 @@ func NewAddonSearcher(addonId string) *AddonSearcher {
 
 func (as *AddonSearcher) GetMovieSearchObject(movie *tmdb.Movie) *MovieSearchObject {
 	year, _ := strconv.Atoi(strings.Split(movie.ReleaseDate, "-")[0])
-	title := movie.OriginalTitle
-	if title == "" {
-		title = movie.Title
+	title := movie.Title
+	if config.Get().UseOriginalTitle && movie.OriginalTitle != "" {
+		title = movie.OriginalTitle
 	}
+
 	sObject := &MovieSearchObject{
 		IMDBId: movie.IMDBId,
 		Title:  NormalizeTitle(title),
@@ -138,32 +139,32 @@ func (as *AddonSearcher) GetMovieSearchObject(movie *tmdb.Movie) *MovieSearchObj
 
 func (as *AddonSearcher) GetSeasonSearchObject(show *tmdb.Show, season *tmdb.Season) *SeasonSearchObject {
 	year, _ := strconv.Atoi(strings.Split(season.AirDate, "-")[0])
-	title := show.OriginalName
-	if title == "" {
-		title = show.Name
+	title := show.Name
+	if config.Get().UseOriginalTitle && show.OriginalName != "" {
+		title = show.OriginalName
 	}
 
 	return &SeasonSearchObject{
-		IMDBId:         show.ExternalIDs.IMDBId,
-		TVDBId:         util.StrInterfaceToInt(show.ExternalIDs.TVDBID),
-		Title:          NormalizeTitle(title),
-		Year:           year,
-		Season:         season.Season,
+		IMDBId: show.ExternalIDs.IMDBId,
+		TVDBId: util.StrInterfaceToInt(show.ExternalIDs.TVDBID),
+		Title:  NormalizeTitle(title),
+		Year:   year,
+		Season: season.Season,
 	}
 }
 
 func (as *AddonSearcher) GetEpisodeSearchObject(show *tmdb.Show, episode *tmdb.Episode) *EpisodeSearchObject {
 	year, _ := strconv.Atoi(strings.Split(episode.AirDate, "-")[0])
-	title := show.OriginalName
-	if title == "" {
-		title = show.Name
+	title := show.Name
+	if config.Get().UseOriginalTitle && show.OriginalName != "" {
+		title = show.OriginalName
 	}
 
 	tvdbId := util.StrInterfaceToInt(show.ExternalIDs.TVDBID)
 
 	// Is this an Anime?
 	absoluteNumber := 0
-	if util.StrInterfaceToInt(show.ExternalIDs.TVDBID) > 0 {
+	if tvdbId > 0 {
 		countryIsJP := false
 		for _, country := range show.OriginCountry {
 			if country == "JP" {
@@ -180,10 +181,10 @@ func (as *AddonSearcher) GetEpisodeSearchObject(show *tmdb.Show, episode *tmdb.E
 		}
 		if countryIsJP && genreIsAnim {
 			tvdbShow, err := tvdb.GetShow(tvdbId, config.Get().Language)
-			if err == nil && len(tvdbShow.Seasons) >= episode.SeasonNumber + 1 {
+			if err == nil && len(tvdbShow.Seasons) >= episode.SeasonNumber+1 {
 				tvdbSeason := tvdbShow.Seasons[episode.SeasonNumber]
 				if len(tvdbSeason.Episodes) >= episode.EpisodeNumber {
-					tvdbEpisode := tvdbSeason.Episodes[episode.EpisodeNumber - 1]
+					tvdbEpisode := tvdbSeason.Episodes[episode.EpisodeNumber-1]
 					if tvdbEpisode.AbsoluteNumber > 0 {
 						absoluteNumber = tvdbEpisode.AbsoluteNumber
 					}

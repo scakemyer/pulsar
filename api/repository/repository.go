@@ -1,25 +1,26 @@
 package repository
 
 import (
-	"os"
-	"fmt"
 	"bufio"
-	"errors"
-	"regexp"
-	"strings"
 	"context"
-	"net/http"
-	"io/ioutil"
 	"crypto/md5"
 	"encoding/hex"
 	"encoding/xml"
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"net/http"
+	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
 
-	"github.com/op/go-logging"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/xbmc"
+
 	"github.com/gin-gonic/gin"
 	"github.com/google/go-github/github"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/op/go-logging"
 )
 
 const (
@@ -59,14 +60,14 @@ func getReleaseByTag(user string, repository string, tagName string) *github.Rep
 func getAddons(user string, repository string) (*xbmc.AddonList, error) {
 	var addons []xbmc.Addon
 
-	_, lastReleaseBranch := getLastRelease(user, "plugin.video.quasar")
-	resp, err := http.Get(fmt.Sprintf(githubUserContentURL, user, "plugin.video.quasar", lastReleaseBranch) + "/addon.xml")
+	_, lastReleaseBranch := getLastRelease(user, "plugin.video.magnetar")
+	resp, err := http.Get(fmt.Sprintf(githubUserContentURL, user, "plugin.video.magnetar", lastReleaseBranch) + "/addon.xml")
 	if err == nil && resp.StatusCode != 200 {
 		err = errors.New(resp.Status)
 	}
 	if err != nil {
 		log.Warning("Unable to retrieve the addon.xml file, checking backup repository...")
-		resp, err = http.Get(fmt.Sprintf(backupRepositoryURL, user, "plugin.video.quasar") + "/addon.xml")
+		resp, err = http.Get(fmt.Sprintf(backupRepositoryURL, user, "plugin.video.magnetar") + "/addon.xml")
 		if err == nil && resp.StatusCode != 200 {
 			err = errors.New(resp.Status)
 		}
@@ -82,7 +83,7 @@ func getAddons(user string, repository string) (*xbmc.AddonList, error) {
 	}
 	if err != nil {
 		log.Warning("Unable to retrieve Burst's addon.xml file, checking backup repository...")
-		respBurst, errBurst := http.Get(fmt.Sprintf(backupRepositoryURL, user, "script.quasar.burst") + "/addon.xml")
+		respBurst, errBurst := http.Get(fmt.Sprintf(backupRepositoryURL, user, "script.magnetar.burst") + "/addon.xml")
 		if errBurst == nil && respBurst.StatusCode != 200 {
 			errBurst = errors.New(respBurst.Status)
 		}
@@ -124,7 +125,7 @@ func GetAddonsXMLChecksum(ctx *gin.Context) {
 		log.Infof("Last available release of %s: v%s", repository, addons.Addons[0].Version)
 	}
 	if len(addons.Addons) > 1 {
-		log.Infof("Last available release of script.quasar.burst: v%s", addons.Addons[1].Version)
+		log.Infof("Last available release of script.magnetar.burst: v%s", addons.Addons[1].Version)
 	}
 	if err != nil {
 		ctx.Error(errors.New("Unable to retrieve the remote's addon.xml file."))
@@ -140,7 +141,7 @@ func GetAddonFiles(ctx *gin.Context) {
 	filepath := ctx.Params.ByName("filepath")[1:] // strip the leading "/"
 
 	lastReleaseTag := ""
-	if repository == "plugin.video.quasar" {
+	if repository == "plugin.video.magnetar" {
 		lastReleaseTag, _ = getLastRelease(user, repository)
 		if lastReleaseTag == "" {
 			// Get last release from addons.xml on master
@@ -166,15 +167,15 @@ func GetAddonFiles(ctx *gin.Context) {
 		GetAddonsXML(ctx)
 		return
 	case "addons.xml.md5":
-		go writeChangelog(user, "plugin.video.quasar")
-		go writeChangelog(user, "script.quasar.burst")
+		go writeChangelog(user, "plugin.video.magnetar")
+		go writeChangelog(user, "script.magnetar.burst")
 		GetAddonsXMLChecksum(ctx)
 		return
 	case "fanart.jpg":
 		fallthrough
 	case "icon.png":
-		if repository == "plugin.video.quasar" {
-			ctx.Redirect(302, fmt.Sprintf(githubUserContentURL + "/" + filepath, user, repository, lastReleaseTag))
+		if repository == "plugin.video.magnetar" {
+			ctx.Redirect(302, fmt.Sprintf(githubUserContentURL+"/"+filepath, user, repository, lastReleaseTag))
 		} else {
 			ctx.Redirect(302, fmt.Sprintf(burstWebsiteURL, filepath))
 		}
@@ -197,7 +198,7 @@ func GetAddonFilesHead(ctx *gin.Context) {
 }
 
 func addonZip(ctx *gin.Context, user string, repository string, lastReleaseTag string) {
-	if repository == "plugin.video.quasar" {
+	if repository == "plugin.video.magnetar" {
 		release := getReleaseByTag(user, repository, lastReleaseTag)
 		// if there a release with an asset that matches a addon zip, use it
 		if release != nil {
@@ -207,7 +208,7 @@ func addonZip(ctx *gin.Context, user string, repository string, lastReleaseTag s
 			platform := platformStruct.OS + "_" + platformStruct.Arch
 			var assetAllPlatforms string
 			for _, asset := range assets {
-				if strings.HasSuffix(*asset.Name, platform + ".zip") {
+				if strings.HasSuffix(*asset.Name, platform+".zip") {
 					assetPlatform := *asset.BrowserDownloadURL
 					log.Infof("Using release asset for %s: %s", platform, assetPlatform)
 					ctx.Redirect(302, assetPlatform)
@@ -254,10 +255,10 @@ func addonZip(ctx *gin.Context, user string, repository string, lastReleaseTag s
 func fetchChangelog(user string, repository string) string {
 	log.Infof("Fetching add-on changelog for %s...", repository)
 	changelog := ""
-	if repository == "plugin.video.quasar" {
+	if repository == "plugin.video.magnetar" {
 		client := github.NewClient(nil)
 		releases, _, _ := client.Repositories.ListReleases(context.TODO(), user, repository, nil)
-		changelog = "Quasar changelog\n======\n\n"
+		changelog = "Magnetar changelog\n======\n\n"
 		for _, release := range releases {
 			changelog += fmt.Sprintf(releaseChangelog, *release.TagName, release.PublishedAt.Format("Jan 2 2006"), *release.Body)
 		}
@@ -286,17 +287,17 @@ func writeChangelog(user string, repository string) error {
 	lines := strings.Split(changelog, "\n")
 	path := filepath.Clean(filepath.Join(config.Get().Info.Path, "..", repository, "changelog.txt"))
 
-  file, err := os.Create(path)
-  if err != nil {
-    return err
-  }
-  defer file.Close()
+	file, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer file.Close()
 
-  w := bufio.NewWriter(file)
-  for _, line := range lines {
-    fmt.Fprintln(w, line)
-  }
-  return w.Flush()
+	w := bufio.NewWriter(file)
+	for _, line := range lines {
+		fmt.Fprintln(w, line)
+	}
+	return w.Flush()
 }
 
 func addonChangelog(ctx *gin.Context, user string, repository string) {

@@ -36,7 +36,7 @@ func VideoLibraryGetMovies() (movies *VideoLibraryMovies) {
 	}}
 	ret := executeJSONRPCO("VideoLibrary.GetMovies", &movies, params)
 	if ret != nil {
-		log.Error(ret)
+		log.Error(ret.Error())
 	}
 	return movies
 }
@@ -45,7 +45,7 @@ func VideoLibraryGetShows() (shows *VideoLibraryShows) {
 	params := map[string]interface{}{"properties": []interface{}{"imdbnumber", "episode"}}
 	err := executeJSONRPCO("VideoLibrary.GetTVShows", &shows, params)
 	if err != nil {
-		log.Error(err)
+		log.Error(err.Error())
 	}
 	return
 }
@@ -62,18 +62,18 @@ func VideoLibraryGetEpisodes(tvshowId int) (episodes *VideoLibraryEpisodes) {
 	}}
 	err := executeJSONRPCO("VideoLibrary.GetEpisodes", &episodes, params)
 	if err != nil {
-		log.Error(err)
+		log.Error(err.Error())
 	}
 	return
 }
 
 func SetMovieWatched(movieId int, playcount int, position int, total int) (ret string) {
 	params := map[string]interface{}{
-		"movieid": movieId,
+		"movieid":   movieId,
 		"playcount": playcount,
 		"resume": map[string]interface{}{
 			"position": position,
-			"total": total,
+			"total":    total,
 		},
 		"lastplayed": time.Now().Format("2006-01-02 15:04:05"),
 	}
@@ -87,7 +87,7 @@ func SetEpisodeWatched(episodeId int, playcount int, position int, total int) (r
 		"playcount": playcount,
 		"resume": map[string]interface{}{
 			"position": position,
-			"total": total,
+			"total":    total,
 		},
 		"lastplayed": time.Now().Format("2006-01-02 15:04:05"),
 	}
@@ -97,12 +97,12 @@ func SetEpisodeWatched(episodeId int, playcount int, position int, total int) (r
 
 func SetFileWatched(file string, position int, total int) (ret string) {
 	params := map[string]interface{}{
-		"file": file,
-		"media": "video",
+		"file":      file,
+		"media":     "video",
 		"playcount": 0,
 		"resume": map[string]interface{}{
 			"position": position,
-			"total": total,
+			"total":    total,
 		},
 		"lastplayed": time.Now().Format("2006-01-02 15:04:05"),
 	}
@@ -138,25 +138,40 @@ func GetLanguage(format int) string {
 	return retVal
 }
 
-func GetLanguageISO_639_1() string{
+func GetLanguageISO_639_1() string {
 	language := GetLanguage(ISO_639_1)
 	if language == "" {
 		switch GetLanguage(EnglishName) {
-		case "Chinese (Simple)":      return "zh"
-		case "Chinese (Traditional)": return "zh"
-		case "English (Australia)":   return "en"
-		case "English (New Zealand)": return "en"
-		case "English (US)":          return "en"
-		case "French (Canada)":       return "fr"
-		case "Hindi (Devanagiri)":    return "hi"
-		case "Mongolian (Mongolia)":  return "mn"
-		case "Persian (Iran)":        return "fa"
-		case "Portuguese (Brazil)":   return "pt"
-		case "Serbian (Cyrillic)":    return "sr"
-		case "Spanish (Argentina)":   return "es"
-		case "Spanish (Mexico)":      return "es"
-		case "Tamil (India)":         return "ta"
-		default:                      return "en"
+		case "Chinese (Simple)":
+			return "zh"
+		case "Chinese (Traditional)":
+			return "zh"
+		case "English (Australia)":
+			return "en"
+		case "English (New Zealand)":
+			return "en"
+		case "English (US)":
+			return "en"
+		case "French (Canada)":
+			return "fr"
+		case "Hindi (Devanagiri)":
+			return "hi"
+		case "Mongolian (Mongolia)":
+			return "mn"
+		case "Persian (Iran)":
+			return "fa"
+		case "Portuguese (Brazil)":
+			return "pt"
+		case "Serbian (Cyrillic)":
+			return "sr"
+		case "Spanish (Argentina)":
+			return "es"
+		case "Spanish (Mexico)":
+			return "es"
+		case "Tamil (India)":
+			return "ta"
+		default:
+			return "en"
 		}
 	}
 	return language

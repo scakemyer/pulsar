@@ -7,9 +7,9 @@ import (
 	"os"
 	"path/filepath"
 
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/util"
+	"github.com/charly3pins/magnetar/xbmc"
 )
 
 func copyFile(from string, to string) error {
@@ -28,27 +28,27 @@ func copyFile(from string, to string) error {
 	return nil
 }
 
-func MakeQuasarRepositoryAddon() error {
-	addonId := "repository.quasar"
-	addonName := "Quasar Repository"
+func MakeMagnetarRepositoryAddon() error {
+	addonId := "repository.magnetar"
+	addonName := "Magnetar Repository"
 
-	quasarHost := fmt.Sprintf("http://localhost:%d", config.ListenPort)
+	magnetarHost := fmt.Sprintf("http://localhost:%d", config.ListenPort)
 	addon := &xbmc.Addon{
 		Id:           addonId,
 		Name:         addonName,
-		Version:      util.Version[2:len(util.Version) - 1],
+		Version:      util.Version[2 : len(util.Version)-1],
 		ProviderName: config.Get().Info.Author,
 		Extensions: []*xbmc.AddonExtension{
 			&xbmc.AddonExtension{
 				Point: "xbmc.addon.repository",
 				Name:  addonName,
 				Info: &xbmc.AddonRepositoryInfo{
-					Text:       quasarHost + "/repository/scakemyer/plugin.video.quasar/addons.xml",
+					Text:       magnetarHost + "/repository/charly3pins/plugin.video.magnetar/addons.xml",
 					Compressed: false,
 				},
-				Checksum: quasarHost + "/repository/scakemyer/plugin.video.quasar/addons.xml.md5",
+				Checksum: magnetarHost + "/repository/charly3pins/plugin.video.magnetar/addons.xml.md5",
 				Datadir: &xbmc.AddonRepositoryDataDir{
-					Text: quasarHost + "/repository/scakemyer/",
+					Text: magnetarHost + "/repository/charly3pins/",
 					Zip:  true,
 				},
 			},
@@ -56,7 +56,7 @@ func MakeQuasarRepositoryAddon() error {
 				Point: "xbmc.addon.metadata",
 				Summaries: []*xbmc.AddonText{
 					&xbmc.AddonText{
-						Text: "GitHub repository for Quasar updates",
+						Text: "GitHub repository for Magnetar updates",
 						Lang: "en",
 					},
 				},

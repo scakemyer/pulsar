@@ -15,22 +15,21 @@ env:
   - PLATFORM=linux-x86
   - PLATFORM=windows-x64
   - PLATFORM=windows-x86
+  - DEP_VERSION=0.5.0
+  
+before_install:
+  - curl -L -s https://github.com/golang/dep/releases/download/v${DEP_VERSION}/dep-linux-amd64 -o $GOPATH/bin/dep
+  - chmod +x $GOPATH/bin/dep
 
 services:
   - docker
-
-before_install:
-  - make pull
-
-install:
-  - go get -d ./...
-  - go get -d github.com/scakemyer/libtorrent-go
 
 script:
   - go tool vet -unsafeptr=false .
   - make libs
   - make $PLATFORM
   - |
+    echo tpr ${TRAVIS_PULL_REQUEST} and tt ${TRAVIS_TAG}
     if [ "${TRAVIS_PULL_REQUEST}" = "false" ] && [ -n "${TRAVIS_TAG}" ]; then
       travis_retry ./push-binaries.sh
     fi

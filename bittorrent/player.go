@@ -1,30 +1,32 @@
 package bittorrent
 
 import (
-	"os"
-	"fmt"
-	"math"
-	"sort"
-	"sync"
-	"time"
 	"bufio"
+	"encoding/hex"
 	"errors"
+	"fmt"
+	"io/ioutil"
+	"math"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"regexp"
+	"sort"
 	"strconv"
 	"strings"
-	"os/exec"
-	"io/ioutil"
-	"encoding/hex"
-	"path/filepath"
+	"sync"
+	"time"
 
-	"github.com/op/go-logging"
-	"github.com/dustin/go-humanize"
-	"github.com/scakemyer/libtorrent-go"
-	"github.com/scakemyer/quasar/broadcast"
-	"github.com/scakemyer/quasar/diskusage"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/trakt"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/charly3pins/magnetar/broadcast"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/diskusage"
+	"github.com/charly3pins/magnetar/trakt"
+	"github.com/charly3pins/magnetar/xbmc"
+
+	libtorrent "github.com/charly3pins/libtorrent-go"
+
+	humanize "github.com/dustin/go-humanize"
+	logging "github.com/op/go-logging"
 	"github.com/zeebo/bencode"
 )
 
@@ -87,23 +89,24 @@ type BTPlayer struct {
 }
 
 type BTPlayerParams struct {
-	URI          string
-	FileIndex    int
-	ResumeIndex  int
-	FromLibrary  bool
-	ContentType  string
-	TMDBId       int
-	ShowID       int
-	Season       int
-	Episode      int
+	URI         string
+	FileIndex   int
+	ResumeIndex int
+	FromLibrary bool
+	ContentType string
+	TMDBId      int
+	ShowID      int
+	Season      int
+	Episode     int
 }
 
 type candidateFile struct {
-	Index     int
-	Filename  string
+	Index    int
+	Filename string
 }
 
 type byFilename []*candidateFile
+
 func (a byFilename) Len() int           { return len(a) }
 func (a byFilename) Swap(i, j int)      { a[i], a[j] = a[j], a[i] }
 func (a byFilename) Less(i, j int) bool { return a[i].Filename < a[j].Filename }
@@ -148,7 +151,7 @@ func (btp *BTPlayer) addTorrent() error {
 	btp.log.Infof("Adding torrent from %s", btp.uri)
 
 	if btp.bts.config.DownloadPath == "." {
-		xbmc.Notify("Quasar", "LOCALIZE[30113]", config.AddonIcon())
+		xbmc.Notify("Magnetar", "LOCALIZE[30113]", config.AddonIcon())
 		return fmt.Errorf("Download path empty")
 	}
 
@@ -308,7 +311,7 @@ func (btp *BTPlayer) Buffer() error {
 	buffered, done := btp.bufferEvents.Listen()
 	defer close(done)
 
-	btp.dialogProgress = xbmc.NewDialogProgress("Quasar", "", "", "")
+	btp.dialogProgress = xbmc.NewDialogProgress("Magnetar", "", "", "")
 	defer btp.dialogProgress.Close()
 
 	btp.overlayStatus = xbmc.NewOverlayStatus()
@@ -370,7 +373,7 @@ func (btp *BTPlayer) CheckAvailableSpace() bool {
 
 		if availableSpace < sizeLeft {
 			btp.log.Errorf("Unsufficient free space on %s. Has %d, needs %d.", btp.bts.config.DownloadPath, btp.diskStatus.Free, sizeLeft)
-			xbmc.Notify("Quasar", "LOCALIZE[30207]", config.AddonIcon())
+			xbmc.Notify("Magnetar", "LOCALIZE[30207]", config.AddonIcon())
 			btp.bufferEvents.Broadcast(errors.New("Not enough space on download destination."))
 			btp.notEnoughSpace = true
 			return false
@@ -476,12 +479,12 @@ func (btp *BTPlayer) onMetadataReceived() {
 	for _ = 0; curPiece < startPiece; curPiece++ {
 		piecesPriorities.Add(0)
 	}
-	for _ = 0; curPiece < startPiece + startBufferPieces; curPiece++ { // get this part
+	for _ = 0; curPiece < startPiece+startBufferPieces; curPiece++ { // get this part
 		piecesPriorities.Add(7)
 		btp.bufferPiecesProgress[curPiece] = 0
 		btp.torrentHandle.SetPieceDeadline(curPiece, 0, 0)
 	}
-	for _ = 0; curPiece < endPiece - endBufferPieces; curPiece++ {
+	for _ = 0; curPiece < endPiece-endBufferPieces; curPiece++ {
 		piecesPriorities.Add(1)
 	}
 	for _ = 0; curPiece <= endPiece; curPiece++ { // get this part
@@ -497,7 +500,7 @@ func (btp *BTPlayer) onMetadataReceived() {
 }
 
 func (btp *BTPlayer) statusStrings(progress float64, status libtorrent.TorrentStatus) (string, string, string) {
-	line1 := fmt.Sprintf("%s (%.2f%%)", StatusStrings[int(status.GetState())], progress * 100)
+	line1 := fmt.Sprintf("%s (%.2f%%)", StatusStrings[int(status.GetState())], progress*100)
 	if btp.torrentInfo != nil && btp.torrentInfo.Swigcptr() != 0 {
 		var totalSize int64
 		if btp.fileSize > 0 && !btp.isRarArchive {
@@ -509,11 +512,11 @@ func (btp *BTPlayer) statusStrings(progress float64, status libtorrent.TorrentSt
 	}
 	seeders := status.GetNumSeeds()
 	line2 := fmt.Sprintf("D:%.0fkB/s U:%.0fkB/s S:%d/%d P:%d/%d",
-		float64(status.GetDownloadRate()) / 1024,
-		float64(status.GetUploadRate()) / 1024,
+		float64(status.GetDownloadRate())/1024,
+		float64(status.GetUploadRate())/1024,
 		seeders,
 		status.GetNumComplete(),
-		status.GetNumPeers() - seeders,
+		status.GetNumPeers()-seeders,
 		status.GetNumIncomplete(),
 	)
 	line3 := ""
@@ -558,9 +561,9 @@ func (btp *BTPlayer) chooseFile() (int, error) {
 
 		fileName := filepath.Base(files.FilePath(i))
 		re := regexp.MustCompile("(?i).*\\.rar")
-		if re.MatchString(fileName) && size > 10 * 1024 * 1024 {
+		if re.MatchString(fileName) && size > 10*1024*1024 {
 			btp.isRarArchive = true
-			if !xbmc.DialogConfirm("Quasar", "LOCALIZE[30303]") {
+			if !xbmc.DialogConfirm("Magnetar", "LOCALIZE[30303]") {
 				btp.notEnoughSpace = true
 				return i, errors.New("RAR archive detected and download was cancelled")
 			}
@@ -620,16 +623,16 @@ func (btp *BTPlayer) chooseFile() (int, error) {
 	return biggestFile, nil
 }
 
-func (btp *BTPlayer) findSubtitlesFile() (int) {
+func (btp *BTPlayer) findSubtitlesFile() int {
 	extension := filepath.Ext(btp.fileName)
-	chosenName := btp.fileName[0:len(btp.fileName)-len(extension)]
+	chosenName := btp.fileName[0 : len(btp.fileName)-len(extension)]
 	srtFileName := chosenName + ".srt"
 
 	numFiles := btp.torrentInfo.NumFiles()
 	files := btp.torrentInfo.Files()
 
-	lastMatched := 0;
-	countMatched := 0;
+	lastMatched := 0
+	countMatched := 0
 
 	for i := 0; i < numFiles; i++ {
 		fileName := files.FilePath(i)
@@ -660,14 +663,14 @@ func (btp *BTPlayer) Close() {
 
 	askedToKeepDownloading := true
 	if btp.askToKeepDownloading == true {
-		if !xbmc.DialogConfirm("Quasar", "LOCALIZE[30146]") {
+		if !xbmc.DialogConfirm("Magnetar", "LOCALIZE[30146]") {
 			askedToKeepDownloading = false
 		}
 	}
 
 	askedToDelete := false
 	if btp.askToDelete == true && (btp.askToKeepDownloading == false || askedToKeepDownloading == false) {
-		if xbmc.DialogConfirm("Quasar", "LOCALIZE[30269]") {
+		if xbmc.DialogConfirm("Magnetar", "LOCALIZE[30269]") {
 			askedToDelete = true
 		}
 	}
@@ -697,7 +700,10 @@ func (btp *BTPlayer) Close() {
 			btp.log.Info("Removing the torrent without deleting files...")
 			btp.bts.Session.GetHandle().RemoveTorrent(btp.torrentHandle, 0)
 		}
+
 	}
+
+	xbmc.Refresh()
 }
 
 func (btp *BTPlayer) consumeAlerts() {
@@ -779,7 +785,7 @@ func (btp *BTPlayer) bufferDialog() {
 			if int(status.GetState()) == 1 || btp.isRarArchive {
 				progress := float64(status.GetProgress())
 				line1, line2, line3 := btp.statusStrings(progress, status)
-				btp.dialogProgress.Update(int(progress * 100.0), line1, line2, line3)
+				btp.dialogProgress.Update(int(progress*100.0), line1, line2, line3)
 
 				if btp.isRarArchive && progress >= 1 {
 					archivePath := filepath.Join(btp.bts.config.DownloadPath, btp.torrentInfo.Files().FilePath(btp.chosenFile))
@@ -805,7 +811,7 @@ func (btp *BTPlayer) bufferDialog() {
 					if err != nil {
 						btp.log.Error(err)
 						btp.bufferEvents.Broadcast(err)
-						xbmc.Notify("Quasar", "LOCALIZE[30304]", config.AddonIcon())
+						xbmc.Notify("Magnetar", "LOCALIZE[30304]", config.AddonIcon())
 						return
 					}
 
@@ -820,7 +826,7 @@ func (btp *BTPlayer) bufferDialog() {
 					if err != nil {
 						btp.log.Error(err)
 						btp.bufferEvents.Broadcast(err)
-						xbmc.Notify("Quasar", "LOCALIZE[30305]", config.AddonIcon())
+						xbmc.Notify("Magnetar", "LOCALIZE[30305]", config.AddonIcon())
 						return
 					}
 
@@ -828,7 +834,7 @@ func (btp *BTPlayer) bufferDialog() {
 					if err != nil {
 						btp.log.Error(err)
 						btp.bufferEvents.Broadcast(err)
-						xbmc.Notify("Quasar", "LOCALIZE[30306]", config.AddonIcon())
+						xbmc.Notify("Magnetar", "LOCALIZE[30306]", config.AddonIcon())
 						return
 					}
 
@@ -850,7 +856,7 @@ func (btp *BTPlayer) bufferDialog() {
 				}
 				btp.bufferPiecesProgressLock.Unlock()
 				line1, line2, line3 := btp.statusStrings(bufferProgress, status)
-				btp.dialogProgress.Update(int(bufferProgress * 100.0), line1, line2, line3)
+				btp.dialogProgress.Update(int(bufferProgress*100.0), line1, line2, line3)
 				if bufferProgress >= 1 {
 					btp.setRateLimiting(true)
 					btp.bufferEvents.Signal()
@@ -866,7 +872,7 @@ func (btp *BTPlayer) findExtracted(destPath string) {
 	if err != nil {
 		btp.log.Error(err)
 		btp.bufferEvents.Broadcast(err)
-		xbmc.Notify("Quasar", "LOCALIZE[30307]", config.AddonIcon())
+		xbmc.Notify("Magnetar", "LOCALIZE[30307]", config.AddonIcon())
 		return
 	}
 	if len(files) == 1 {
@@ -942,7 +948,7 @@ playbackWaitLoop:
 		}
 		select {
 		case <-playbackTimeout:
-			btp.log.Warningf("Playback was unable to start after %d seconds. Aborting...", playbackMaxWait / time.Second)
+			btp.log.Warningf("Playback was unable to start after %d seconds. Aborting...", playbackMaxWait/time.Second)
 			btp.bufferEvents.Broadcast(errors.New("Playback was unable to start before timeout."))
 			return
 		case <-oneSecond.C:
@@ -1010,6 +1016,19 @@ playbackLoop:
 	if btp.scrobble {
 		trakt.Scrobble("stop", btp.contentType, btp.tmdbId, WatchedTime, VideoDuration)
 	}
+
+	progress := WatchedTime / VideoDuration * 100
+	btp.log.Infof("progress: %+v, btp.contentType: %+v", progress, btp.contentType)
+	if progress >= 80 {
+		if btp.contentType == "episode" {
+			trakt.AddEpisodeToWatchedHistory(btp.showId, btp.season, btp.episode)
+			btp.log.Infof("adding show %+v, season %+v, episode %+v to watched history", btp.showId, btp.season, btp.episode)
+		} else if btp.contentType == "movie" {
+			trakt.AddMovieToWatchedHistory(btp.tmdbId)
+			btp.log.Infof("adding movie %+v to watched history", btp.tmdbId)
+		}
+	}
+
 	Paused = false
 	Seeked = false
 	Playing = false

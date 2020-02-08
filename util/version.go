@@ -2,13 +2,14 @@ package util
 
 import (
 	"fmt"
-	"github.com/scakemyer/libtorrent-go"
+
+	"github.com/charly3pins/libtorrent-go"
 )
 
 var (
-	Version   string
+	Version string
 )
 
 func UserAgent() string {
-	return fmt.Sprintf("Quasar/%s libtorrent/%s", Version[1:len(Version) - 1], libtorrent.Version())
+	return fmt.Sprintf("Magnetar/%s libtorrent/%s", Version[1:len(Version)-1], libtorrent.Version())
 }

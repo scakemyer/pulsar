@@ -1,20 +1,21 @@
 package trakt
 
 import (
-	"fmt"
-	"time"
 	"bytes"
 	"errors"
-	"strconv"
-	"net/url"
+	"fmt"
 	"net/http"
+	"net/url"
+	"strconv"
+	"time"
 
-	"github.com/op/go-logging"
+	"github.com/charly3pins/magnetar/cloudhole"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/util"
+	"github.com/charly3pins/magnetar/xbmc"
+
 	"github.com/jmcvetta/napping"
-	"github.com/scakemyer/quasar/cloudhole"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/op/go-logging"
 )
 
 const (
@@ -40,6 +41,11 @@ var (
 
 var rateLimiter = util.NewRateLimiter(burstRate, burstTime, simultaneousConnections)
 
+var WatchedMoviesMap = make(map[int]bool)
+var WatchedShowsMap = make(map[int]AiredStatus)
+var WatchedSeasonsMap = make(map[int]map[int]AiredStatus)
+var WatchedEpisodesMap = make(map[int]map[int]map[int]bool)
+
 type Object struct {
 	Title string `json:"title"`
 	Year  int    `json:"year"`
@@ -49,80 +55,80 @@ type Object struct {
 type Movie struct {
 	Object
 
-	Released      string      `json:"released"`
-	URL           string      `json:"homepage"`
-	Trailer       string      `json:"trailer"`
-	Runtime       int         `json:"runtime"`
-	TagLine       string      `json:"tagline"`
-	Overview      string      `json:"overview"`
-	Certification string      `json:"certification"`
-	Rating        float32     `json:"rating"`
-	Votes         int         `json:"votes"`
-	Genres        []string    `json:"genres"`
-	Language      string      `json:"language"`
-	Translations  []string    `json:"available_translations"`
+	Released      string   `json:"released"`
+	URL           string   `json:"homepage"`
+	Trailer       string   `json:"trailer"`
+	Runtime       int      `json:"runtime"`
+	TagLine       string   `json:"tagline"`
+	Overview      string   `json:"overview"`
+	Certification string   `json:"certification"`
+	Rating        float32  `json:"rating"`
+	Votes         int      `json:"votes"`
+	Genres        []string `json:"genres"`
+	Language      string   `json:"language"`
+	Translations  []string `json:"available_translations"`
 
-	Images        *Images     `json:"images"`
+	Images *Images `json:"images"`
 }
 
 type Show struct {
 	Object
 
-	FirstAired    string      `json:"first_aired"`
-	URL           string      `json:"homepage"`
-	Trailer       string      `json:"trailer"`
-	Runtime       int         `json:"runtime"`
-	Overview      string      `json:"overview"`
-	Certification string      `json:"certification"`
-	Status        string      `json:"status"`
-	Network       string      `json:"network"`
-	AiredEpisodes int         `json:"aired_episodes"`
-	Airs          *Airs       `json:"airs"`
-	Rating        float32     `json:"rating"`
-	Votes         int         `json:"votes"`
-	Genres        []string    `json:"genres"`
-	Country       string      `json:"country"`
-	Language      string      `json:"language"`
-	Translations  []string    `json:"available_translations"`
+	FirstAired    string   `json:"first_aired"`
+	URL           string   `json:"homepage"`
+	Trailer       string   `json:"trailer"`
+	Runtime       int      `json:"runtime"`
+	Overview      string   `json:"overview"`
+	Certification string   `json:"certification"`
+	Status        string   `json:"status"`
+	Network       string   `json:"network"`
+	AiredEpisodes int      `json:"aired_episodes"`
+	Airs          *Airs    `json:"airs"`
+	Rating        float32  `json:"rating"`
+	Votes         int      `json:"votes"`
+	Genres        []string `json:"genres"`
+	Country       string   `json:"country"`
+	Language      string   `json:"language"`
+	Translations  []string `json:"available_translations"`
 
-	Images        *Images     `json:"images"`
+	Images *Images `json:"images"`
 }
 
 type Season struct {
 	// Show          *Show   `json:"-"`
-	Number        int         `json:"number"`
-	Overview      string      `json:"overview"`
-	EpisodeCount  int         `json:"episode_count"`
-	AiredEpisodes int         `json:"aired_episodes"`
-	Rating        float32     `json:"rating"`
-	Votes         int         `json:"votes"`
+	Number        int     `json:"number"`
+	Overview      string  `json:"overview"`
+	EpisodeCount  int     `json:"episode_count"`
+	AiredEpisodes int     `json:"aired_episodes"`
+	Rating        float32 `json:"rating"`
+	Votes         int     `json:"votes"`
 
-	Images        *Images     `json:"images"`
-	IDs           *IDs        `json:"ids"`
+	Images *Images `json:"images"`
+	IDs    *IDs    `json:"ids"`
 }
 
 type Episode struct {
 	// Show          *Show       `json:"-"`
 	// Season        *ShowSeason `json:"-"`
-	Number        int         `json:"number"`
-	Season        int         `json:"season"`
-	Title         string      `json:"title"`
-	Overview      string      `json:"overview"`
-	Absolute      int         `json:"number_abs"`
-	FirstAired    string      `json:"first_aired"`
-	Translations  []string    `json:"available_translations"`
+	Number       int      `json:"number"`
+	Season       int      `json:"season"`
+	Title        string   `json:"title"`
+	Overview     string   `json:"overview"`
+	Absolute     int      `json:"number_abs"`
+	FirstAired   string   `json:"first_aired"`
+	Translations []string `json:"available_translations"`
 
-	Rating        float32     `json:"rating"`
-	Votes         int         `json:"votes"`
+	Rating float32 `json:"rating"`
+	Votes  int     `json:"votes"`
 
-	Images        *Images     `json:"images"`
-	IDs           *IDs        `json:"ids"`
+	Images *Images `json:"images"`
+	IDs    *IDs    `json:"ids"`
 }
 
 type Airs struct {
-	Day           string      `json:"day"`
-	Time          string      `json:"time"`
-	Timezone      string      `json:"timezone"`
+	Day      string `json:"day"`
+	Time     string `json:"time"`
+	Timezone string `json:"timezone"`
 }
 
 type Movies struct {
@@ -142,15 +148,15 @@ type Watchlist struct {
 }
 
 type WatchlistMovie struct {
-	ListedAt string  `json:"listed_at"`
-	Type     string  `json:"type"`
-	Movie    *Movie  `json:"movie"`
+	ListedAt string `json:"listed_at"`
+	Type     string `json:"type"`
+	Movie    *Movie `json:"movie"`
 }
 
 type WatchlistShow struct {
-	ListedAt string  `json:"listed_at"`
-	Type     string  `json:"type"`
-	Show     *Show   `json:"show"`
+	ListedAt string `json:"listed_at"`
+	Type     string `json:"type"`
+	Show     *Show  `json:"show"`
 }
 
 type WatchlistSeason struct {
@@ -165,6 +171,63 @@ type WatchlistEpisode struct {
 	Type     string   `json:"type"`
 	Episode  *Episode `json:"episode"`
 	Show     *Object  `json:"show"`
+}
+
+type WatchedMovie struct {
+	Plays         int    `json:"plays"`
+	LastWatchedAt string `json:"last_watched_at"`
+	Movie         *Movie `json:"movie"`
+}
+
+type WatchedShow struct {
+	Plays         int              `json:"plays"`
+	LastWatchedAt string           `json:"last_watched_at"`
+	Show          *Show            `json:"show"`
+	Seasons       []*WatchedSeason `json:"seasons"`
+}
+
+type WatchedSeason struct {
+	Number   int               `json:"number"`
+	Episodes []*WatchedEpisode `json:"episodes"`
+}
+
+type WatchedEpisode struct {
+	Number        int    `json:"number"`
+	Plays         int    `json:"plays"`
+	LastWatchedAt string `json:"last_watched_at"`
+}
+
+type WatchedProgressShow struct {
+	Aired         int                       `json:"aired"`
+	Completed     int                       `json:"completed"`
+	LastWatchedAt string                    `json:"last_watched_at"`
+	Seasons       []*WatchedProgressSeasons `json:"seasons"`
+	HiddenSeasons []*Season                 `json:"hidden_seasons"`
+	NextEpisode   Episode                   `json:"next_episode"`
+	LastEpisode   Episode                   `json:"last_episode"`
+}
+
+type WatchedProgressSeasons struct {
+	Number    int                        `json:"number"`
+	Aired     int                        `json:"aired"`
+	Completed int                        `json:"completed"`
+	Episodes  []*WatchedProgressEpisodes `json:"episodes"`
+}
+
+type WatchedProgressEpisodes struct {
+	Number        int    `json:"number"`
+	Completed     bool   `json:"completed"`
+	LastWatchedAt string `json:"last_watched_at"`
+}
+
+type AiredStatus struct {
+	Aired     int
+	Completed int
+}
+
+type ProgressShow struct {
+	Episode *Episode `json:"episode"`
+	Show    *Show    `json:"show"`
 }
 
 type CollectionMovie struct {
@@ -207,12 +270,12 @@ type Sizes struct {
 }
 
 type IDs struct {
-  Trakt  int    `json:"trakt"`
-  IMDB   string `json:"imdb"`
+	Trakt  int    `json:"trakt"`
+	IMDB   string `json:"imdb"`
 	TMDB   int    `json:"tmdb"`
-  TVDB   int    `json:"tvdb"`
+	TVDB   int    `json:"tvdb"`
 	TVRage int    `json:"tvrage"`
-  Slug   string `json:"slug"`
+	Slug   string `json:"slug"`
 }
 
 type Code struct {
@@ -256,24 +319,24 @@ type List struct {
 }
 
 type ListItem struct {
-	Rank      int      `json:"rank"`
-	ListedAt  string   `json:"listed_at"`
-	Type      string   `json:"type"`
-	Movie     *Movie   `json:"movie"`
-	Show      *Show    `json:"show"`
+	Rank     int    `json:"rank"`
+	ListedAt string `json:"listed_at"`
+	Type     string `json:"type"`
+	Movie    *Movie `json:"movie"`
+	Show     *Show  `json:"show"`
 	// Season    *Season  `json:"season"`
 	// Episode   *Episode `json:"episode"`
 }
 
 type CalendarShow struct {
-	FirstAired  string   `json:"first_aired"`
-	Episode     *Episode `json:"episode"`
-	Show        *Show    `json:"show"`
+	FirstAired string   `json:"first_aired"`
+	Episode    *Episode `json:"episode"`
+	Show       *Show    `json:"show"`
 }
 
 type CalendarMovie struct {
-	Released   string `json:"released"`
-	Movie      *Movie `json:"movie"`
+	Released string `json:"released"`
+	Movie    *Movie `json:"movie"`
 }
 
 func totalFromHeaders(headers http.Header) (total int, err error) {
@@ -310,15 +373,15 @@ func newClearance() (err error) {
 
 func Get(endPoint string, params url.Values) (resp *napping.Response, err error) {
 	header := http.Header{
-		"Content-type": []string{"application/json"},
-		"trakt-api-key": []string{ClientId},
+		"Content-type":      []string{"application/json"},
+		"trakt-api-key":     []string{ClientId},
 		"trakt-api-version": []string{ApiVersion},
-		"User-Agent": []string{clearance.UserAgent},
-		"Cookie": []string{clearance.Cookies},
+		"User-Agent":        []string{clearance.UserAgent},
+		"Cookie":            []string{clearance.Cookies},
 	}
 
 	req := napping.Request{
-		Url: fmt.Sprintf("%s/%s", ApiUrl, endPoint),
+		Url:    fmt.Sprintf("%s/%s", ApiUrl, endPoint),
 		Method: "GET",
 		Params: &params,
 		Header: &header,
@@ -343,16 +406,16 @@ func Get(endPoint string, params url.Values) (resp *napping.Response, err error)
 
 func GetWithAuth(endPoint string, params url.Values) (resp *napping.Response, err error) {
 	header := http.Header{
-		"Content-type": []string{"application/json"},
-		"Authorization": []string{fmt.Sprintf("Bearer %s", config.Get().TraktToken)},
-		"trakt-api-key": []string{ClientId},
+		"Content-type":      []string{"application/json"},
+		"Authorization":     []string{fmt.Sprintf("Bearer %s", config.Get().TraktToken)},
+		"trakt-api-key":     []string{ClientId},
 		"trakt-api-version": []string{ApiVersion},
-		"User-Agent": []string{clearance.UserAgent},
-		"Cookie": []string{clearance.Cookies},
+		"User-Agent":        []string{clearance.UserAgent},
+		"Cookie":            []string{clearance.Cookies},
 	}
 
 	req := napping.Request{
-		Url: fmt.Sprintf("%s/%s", ApiUrl, endPoint),
+		Url:    fmt.Sprintf("%s/%s", ApiUrl, endPoint),
 		Method: "GET",
 		Params: &params,
 		Header: &header,
@@ -377,20 +440,20 @@ func GetWithAuth(endPoint string, params url.Values) (resp *napping.Response, er
 
 func Post(endPoint string, payload *bytes.Buffer) (resp *napping.Response, err error) {
 	header := http.Header{
-		"Content-type": []string{"application/json"},
-		"Authorization": []string{fmt.Sprintf("Bearer %s", config.Get().TraktToken)},
-		"trakt-api-key": []string{ClientId},
+		"Content-type":      []string{"application/json"},
+		"Authorization":     []string{fmt.Sprintf("Bearer %s", config.Get().TraktToken)},
+		"trakt-api-key":     []string{ClientId},
 		"trakt-api-version": []string{ApiVersion},
-		"User-Agent": []string{clearance.UserAgent},
-		"Cookie": []string{clearance.Cookies},
+		"User-Agent":        []string{clearance.UserAgent},
+		"Cookie":            []string{clearance.Cookies},
 	}
 
 	req := napping.Request{
-		Url: fmt.Sprintf("%s/%s", ApiUrl, endPoint),
-		Method: "POST",
+		Url:        fmt.Sprintf("%s/%s", ApiUrl, endPoint),
+		Method:     "POST",
 		RawPayload: true,
-		Payload: payload,
-		Header: &header,
+		Payload:    payload,
+		Header:     &header,
 	}
 
 	rateLimiter.Call(func() {
@@ -414,15 +477,15 @@ func GetCode() (code *Code, err error) {
 	endPoint := "oauth/device/code"
 	header := http.Header{
 		"Content-type": []string{"application/json"},
-		"User-Agent": []string{clearance.UserAgent},
-		"Cookie": []string{clearance.Cookies},
+		"User-Agent":   []string{clearance.UserAgent},
+		"Cookie":       []string{clearance.Cookies},
 	}
 	params := napping.Params{
 		"client_id": ClientId,
 	}.AsUrlValues()
 
 	req := napping.Request{
-		Url: fmt.Sprintf("%s/%s", ApiUrl, endPoint),
+		Url:    fmt.Sprintf("%s/%s", ApiUrl, endPoint),
 		Method: "POST",
 		Params: &params,
 		Header: &header,
@@ -456,22 +519,21 @@ func GetToken(code string) (resp *napping.Response, err error) {
 	endPoint := "oauth/device/token"
 	header := http.Header{
 		"Content-type": []string{"application/json"},
-		"User-Agent": []string{clearance.UserAgent},
-		"Cookie": []string{clearance.Cookies},
+		"User-Agent":   []string{clearance.UserAgent},
+		"Cookie":       []string{clearance.Cookies},
 	}
 	params := napping.Params{
-		"code": code,
-		"client_id": ClientId,
+		"code":          code,
+		"client_id":     ClientId,
 		"client_secret": ClientSecret,
 	}.AsUrlValues()
 
 	req := napping.Request{
-		Url: fmt.Sprintf("%s/%s", ApiUrl, endPoint),
+		Url:    fmt.Sprintf("%s/%s", ApiUrl, endPoint),
 		Method: "POST",
 		Params: &params,
 		Header: &header,
 	}
-
 
 	rateLimiter.Call(func() {
 		resp, err = napping.Send(&req)
@@ -524,7 +586,7 @@ func PollToken(code *Code) (token *Token, err error) {
 			} else if resp.Status() == 429 {
 				// err = errors.New("Polling too quickly.")
 				interval.Stop()
-				interval = time.NewTicker(time.Duration(startInterval + 5) * time.Second)
+				interval = time.NewTicker(time.Duration(startInterval+5) * time.Second)
 				break
 			}
 
@@ -539,24 +601,23 @@ func RefreshToken() (resp *napping.Response, err error) {
 	endPoint := "oauth/token"
 	header := http.Header{
 		"Content-type": []string{"application/json"},
-		"User-Agent": []string{clearance.UserAgent},
-		"Cookie": []string{clearance.Cookies},
+		"User-Agent":   []string{clearance.UserAgent},
+		"Cookie":       []string{clearance.Cookies},
 	}
 	params := napping.Params{
 		"refresh_token": config.Get().TraktRefreshToken,
-		"client_id": ClientId,
+		"client_id":     ClientId,
 		"client_secret": ClientSecret,
-		"redirect_uri": "urn:ietf:wg:oauth:2.0:oob",
-		"grant_type": "refresh_token",
+		"redirect_uri":  "urn:ietf:wg:oauth:2.0:oob",
+		"grant_type":    "refresh_token",
 	}.AsUrlValues()
 
 	req := napping.Request{
-		Url: fmt.Sprintf("%s/%s", ApiUrl, endPoint),
+		Url:    fmt.Sprintf("%s/%s", ApiUrl, endPoint),
 		Method: "POST",
 		Params: &params,
 		Header: &header,
 	}
-
 
 	resp, err = napping.Send(&req)
 	if err != nil {
@@ -580,27 +641,27 @@ func TokenRefreshHandler() {
 	for {
 		select {
 		case <-ticker.C:
-			if time.Now().Unix() > int64(config.Get().TraktTokenExpiry) - int64(259200) {
+			if time.Now().Unix() > int64(config.Get().TraktTokenExpiry)-int64(259200) {
 				resp, err := RefreshToken()
 				if err != nil {
-					xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+					xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 					log.Error(err)
 					return
 				} else {
 					if resp.Status() == 200 {
 						if err := resp.Unmarshal(&token); err != nil {
-							xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+							xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 							log.Error(err)
 						} else {
 							expiry := time.Now().Unix() + int64(token.ExpiresIn)
 							xbmc.SetSetting("trakt_token_expiry", strconv.Itoa(int(expiry)))
 							xbmc.SetSetting("trakt_token", token.AccessToken)
 							xbmc.SetSetting("trakt_refresh_token", token.RefreshToken)
-							log.Noticef("Token refreshed for Trakt authorization, next refresh in %s", time.Duration(token.ExpiresIn - 259200) * time.Second)
+							log.Noticef("Token refreshed for Trakt authorization, next refresh in %s", time.Duration(token.ExpiresIn-259200)*time.Second)
 						}
 					} else {
 						err = errors.New(fmt.Sprintf("Bad status while refreshing Trakt token: %d", resp.Status()))
-						xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+						xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 						log.Error(err)
 					}
 				}
@@ -613,7 +674,7 @@ func Authorize(fromSettings bool) error {
 	code, err := GetCode()
 
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 		return err
 	}
 	log.Noticef("Got code for %s: %s", code.VerificationURL, code.UserCode)
@@ -625,7 +686,7 @@ func Authorize(fromSettings bool) error {
 	token, err := PollToken(code)
 
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 		return err
 	}
 
@@ -639,7 +700,7 @@ func Authorize(fromSettings bool) error {
 	xbmc.SetSetting("trakt_token", token.AccessToken)
 	xbmc.SetSetting("trakt_refresh_token", token.RefreshToken)
 
-	xbmc.Notify("Quasar", success, config.AddonIcon())
+	xbmc.Notify("Magnetar", success, config.AddonIcon())
 	return nil
 }
 
@@ -689,6 +750,54 @@ func RemoveFromCollection(itemType string, tmdbId string) (resp *napping.Respons
 	return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"%s": [{"ids": {"tmdb": %s}}]}`, itemType, tmdbId)))
 }
 
+func AddEpisodeToWatchedHistory2(showId, season, episode int) (resp *napping.Response, err error) {
+	if err := Authorized(); err != nil {
+		return nil, err
+	}
+
+	endPoint := "sync/history"
+	if season == -1 {
+		return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d }}]}`, showId)))
+	} else if episode == -1 {
+		return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d}, "seasons": [{ "number": %d }]}]}`, showId, season)))
+	}
+
+	return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d}, "seasons": [{ "number": %d, "episodes": [{"watched_at": "%s", "number": %d }]}]}]}`, showId, season, time.Now().Format("20060102-15:04:05.000"), episode)))
+}
+
+func RemoveEpisodeFromWatchedHistory2(showId, season, episode int) (resp *napping.Response, err error) {
+	if err := Authorized(); err != nil {
+		return nil, err
+	}
+
+	endPoint := "sync/history/remove"
+	if season == -1 {
+		return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d }}]}`, showId)))
+	} else if episode == -1 {
+		return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d}, "seasons": [{ "number": %d }]}]}`, showId, season)))
+	}
+
+	return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d}, "seasons": [{ "number": %d, "episodes": [{"number": %d }]}]}]}`, showId, season, episode)))
+}
+
+func AddMovieToWatchedHistory2(movie int) (resp *napping.Response, err error) {
+	if err := Authorized(); err != nil {
+		return nil, err
+	}
+
+	endPoint := "sync/history"
+	return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"movies": [{ "watched_at": "%s", "ids": {"tmdb": %d }}]}`, time.Now().Format("20060102-15:04:05.000"), movie)))
+}
+
+func RemoveMovieFromWatchedHistory2(movie int) (resp *napping.Response, err error) {
+	if err := Authorized(); err != nil {
+		return nil, err
+	}
+
+	endPoint := "sync/history/remove"
+	return Post(endPoint, bytes.NewBufferString(fmt.Sprintf(`{"movies": [{ "ids": {"tmdb": %d }}]}`, movie)))
+}
+
 func Scrobble(action string, contentType string, tmdbId int, watched float64, runtime float64) {
 	if err := Authorized(); err != nil {
 		return
@@ -703,12 +812,48 @@ func Scrobble(action string, contentType string, tmdbId int, watched float64, ru
 
 	endPoint := fmt.Sprintf("scrobble/%s", action)
 	payload := fmt.Sprintf(`{"%s": {"ids": {"tmdb": %d}}, "progress": %f, "app_version": "%s"}`,
-	                       contentType, tmdbId, progress, util.Version[1:len(util.Version) - 1])
+		contentType, tmdbId, progress, util.Version[1:len(util.Version)-1])
 	resp, err := Post(endPoint, bytes.NewBufferString(payload))
 	if err != nil {
 		log.Error(err.Error())
-		xbmc.Notify("Quasar", "Scrobble failed, check your logs.", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Scrobble failed, check your logs.", config.AddonIcon())
 	} else if resp.Status() != 201 {
 		log.Errorf("Failed to scrobble %s #%d to %s at %f: %d", contentType, tmdbId, action, progress, resp.Status())
+	}
+}
+
+func AddEpisodeToWatchedHistory(showId, season, episode int) {
+	if err := Authorized(); err != nil {
+		return
+	}
+
+	endPoint := "sync/history"
+	payload := fmt.Sprintf(`{"shows": [{ "ids": {"tmdb": %d}, "seasons": [{ "number": %d, "episodes": [{"watched_at": "%s", "number": %d }]}]}]}`, showId, season, time.Now().Format("20060102-15:04:05.000"), episode)
+	//log.Noticef("Calling endpoint: ", endPoint, "\npayload: ", payload)
+	resp, err := Post(endPoint, bytes.NewBufferString(payload))
+	//log.Noticef(resp.RawText())
+	if err != nil {
+		log.Error(err.Error())
+		xbmc.Notify("Magnetar", "AddEpisodeToWatchedHistory failed, check your logs.", config.AddonIcon())
+	} else if resp.Status() != 201 {
+		log.Errorf("Failed in AddEpisodeToWatchedHistory to sync/history showId %d season %d episode %d", showId, season, episode)
+	}
+}
+
+func AddMovieToWatchedHistory(movie int) {
+	if err := Authorized(); err != nil {
+		return
+	}
+
+	endPoint := "sync/history"
+	payload := fmt.Sprintf(`{"movies": [{ "watched_at": "%s", "ids": {"tmdb": %d }}]}`, time.Now().Format("20060102-15:04:05.000"), movie)
+	//log.Noticef("Calling endpoint: ", endPoint, "\npayload: ", payload)
+	resp, err := Post(endPoint, bytes.NewBufferString(payload))
+	//log.Noticef(resp.RawText())
+	if err != nil {
+		log.Error(err.Error())
+		xbmc.Notify("Magnetar", "AddMovieToWatchedHistory failed, check your logs.", config.AddonIcon())
+	} else if resp.Status() != 201 {
+		log.Errorf("Failed in AddMovieToWatchedHistory to sync/history movie %d", movie)
 	}
 }

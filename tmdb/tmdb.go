@@ -2,18 +2,19 @@ package tmdb
 
 import (
 	"fmt"
-	"sync"
-	"time"
+	"math/rand"
 	"path"
 	"strconv"
-	"math/rand"
+	"sync"
+	"time"
 
-	"github.com/op/go-logging"
+	"github.com/charly3pins/magnetar/cache"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/util"
+	"github.com/charly3pins/magnetar/xbmc"
+
 	"github.com/jmcvetta/napping"
-	"github.com/scakemyer/quasar/cache"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
+	"github.com/op/go-logging"
 )
 
 const (
@@ -43,7 +44,7 @@ type Movie struct {
 	SpokenLanguages     []*Language  `json:"spoken_languages"`
 	ExternalIDs         *ExternalIDs `json:"external_ids"`
 
-	AlternativeTitles   *struct {
+	AlternativeTitles *struct {
 		Titles []*AlternativeTitle `json:"titles"`
 	} `json:"alternative_titles"`
 
@@ -92,26 +93,26 @@ type Show struct {
 }
 
 type Season struct {
-	Id           int    `json:"id"`
-	Name         string `json:"name,omitempty"`
-	Season       int    `json:"season_number"`
-	EpisodeCount int    `json:"episode_count,omitempty"`
-	AirDate      string `json:"air_date"`
-	Poster       string `json:"poster_path"`
+	Id           int          `json:"id"`
+	Name         string       `json:"name,omitempty"`
+	Season       int          `json:"season_number"`
+	EpisodeCount int          `json:"episode_count,omitempty"`
+	AirDate      string       `json:"air_date"`
+	Poster       string       `json:"poster_path"`
 	ExternalIDs  *ExternalIDs `json:"external_ids"`
 
 	Episodes EpisodeList `json:"episodes"`
 }
 
 type Episode struct {
-	Id            int     `json:"id"`
-	Name          string  `json:"name"`
-	Overview      string  `json:"overview"`
-	AirDate       string  `json:"air_date"`
-	SeasonNumber  int     `json:"season_number"`
-	EpisodeNumber int     `json:"episode_number"`
-	VoteAverage   float32 `json:"vote_average"`
-	StillPath     string  `json:"still_path"`
+	Id            int          `json:"id"`
+	Name          string       `json:"name"`
+	Overview      string       `json:"overview"`
+	AirDate       string       `json:"air_date"`
+	SeasonNumber  int          `json:"season_number"`
+	EpisodeNumber int          `json:"episode_number"`
+	VoteAverage   float32      `json:"vote_average"`
+	StillPath     string       `json:"still_path"`
 	ExternalIDs   *ExternalIDs `json:"external_ids"`
 }
 
@@ -262,7 +263,7 @@ var (
 		"8cf43ad9c085135b9479ad5cf6bbcbda",
 		"ae4bd1b6fce2a5648671bfc171d15ba4",
 	}
-	apiKey = apiKeys[rand.Intn(len(apiKeys))]
+	apiKey    = apiKeys[rand.Intn(len(apiKeys))]
 	WarmingUp = true
 )
 
@@ -286,7 +287,7 @@ func CheckApiKey() {
 		} else {
 			log.Warningf("TMDB API key failed: %s", apiKey)
 			if apiKey == apiKeys[index] {
-				apiKeys = append(apiKeys[:index], apiKeys[index + 1:]...)
+				apiKeys = append(apiKeys[:index], apiKeys[index+1:]...)
 			}
 			if len(apiKeys) > 0 {
 				apiKey = apiKeys[rand.Intn(len(apiKeys))]
@@ -309,7 +310,7 @@ func tmdbCheck(key string) bool {
 	}.AsUrlValues()
 
 	resp, err := napping.Get(
-		tmdbEndpoint + "movie/550",
+		tmdbEndpoint+"movie/550",
 		&urlValues,
 		&result,
 		nil,
@@ -317,7 +318,7 @@ func tmdbCheck(key string) bool {
 
 	if err != nil {
 		log.Error(err.Error())
-		xbmc.Notify("Quasar", "TMDB check failed, check your logs.", config.AddonIcon())
+		xbmc.Notify("Magnetar", "TMDB check failed, check your logs.", config.AddonIcon())
 		return false
 	} else if resp.Status() != 200 {
 		return false
@@ -334,7 +335,7 @@ func ImageURL(uri string, size string) string {
 func ListEntities(endpoint string, params napping.Params) []*Entity {
 	var wg sync.WaitGroup
 	resultsPerPage := config.Get().ResultsPerPage
-	entities := make([]*Entity, PagesAtOnce * resultsPerPage)
+	entities := make([]*Entity, PagesAtOnce*resultsPerPage)
 	params["api_key"] = apiKey
 	params["language"] = "en"
 
@@ -349,25 +350,25 @@ func ListEntities(endpoint string, params napping.Params) []*Entity {
 			for k, v := range params {
 				tmpParams[k] = v
 			}
-      urlValues := tmpParams.AsUrlValues()
+			urlValues := tmpParams.AsUrlValues()
 			rateLimiter.Call(func() {
 				resp, err := napping.Get(
-					tmdbEndpoint + endpoint,
+					tmdbEndpoint+endpoint,
 					&urlValues,
 					&tmp,
 					nil,
 				)
 				if err != nil {
 					log.Error(err.Error())
-					xbmc.Notify("Quasar", "Failed listing entities, check your logs.", config.AddonIcon())
+					xbmc.Notify("Magnetar", "Failed listing entities, check your logs.", config.AddonIcon())
 				} else if resp.Status() != 200 {
 					message := fmt.Sprintf("Bad status listing entities: %d", resp.Status())
 					log.Error(message)
-					xbmc.Notify("Quasar", message, config.AddonIcon())
+					xbmc.Notify("Magnetar", message, config.AddonIcon())
 				}
 			})
 			for i, entity := range tmp.Results {
-				entities[page * resultsPerPage + i] = entity
+				entities[page*resultsPerPage+i] = entity
 			}
 		}(i)
 	}
@@ -384,25 +385,25 @@ func Find(externalId string, externalSource string) *FindResult {
 	key := fmt.Sprintf("com.tmdb.find.%s.%s", externalSource, externalId)
 	if err := cacheStore.Get(key, &result); err != nil {
 		rateLimiter.Call(func() {
-      urlValues := napping.Params{
-				"api_key": apiKey,
+			urlValues := napping.Params{
+				"api_key":         apiKey,
 				"external_source": externalSource,
 			}.AsUrlValues()
 			resp, err := napping.Get(
-				tmdbEndpoint + "find/" + externalId,
+				tmdbEndpoint+"find/"+externalId,
 				&urlValues,
 				&result,
 				nil,
 			)
 			if err != nil {
 				log.Error(err.Error())
-				xbmc.Notify("Quasar", "Failed Find call, check your logs.", config.AddonIcon())
+				xbmc.Notify("Magnetar", "Failed Find call, check your logs.", config.AddonIcon())
 			} else if resp.Status() != 200 {
 				message := fmt.Sprintf("Find call bad status: %d", resp.Status())
 				log.Error(message)
-				xbmc.Notify("Quasar", message, config.AddonIcon())
+				xbmc.Notify("Magnetar", message, config.AddonIcon())
 			}
-			cacheStore.Set(key, result, 15 * time.Minute)
+			cacheStore.Set(key, result, 15*time.Minute)
 		})
 	}
 

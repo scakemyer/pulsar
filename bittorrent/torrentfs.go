@@ -1,20 +1,22 @@
 package bittorrent
 
 import (
-	"os"
-	"time"
-	"sync"
-	"errors"
-	"unsafe"
-	"net/http"
 	"encoding/hex"
+	"errors"
+	"net/http"
+	"os"
 	"path/filepath"
+	"sync"
+	"time"
+	"unsafe"
+
+	"github.com/charly3pins/magnetar/broadcast"
+	"github.com/charly3pins/magnetar/util"
+	"github.com/charly3pins/magnetar/xbmc"
+
+	"github.com/charly3pins/libtorrent-go"
 
 	"github.com/op/go-logging"
-	"github.com/scakemyer/libtorrent-go"
-	"github.com/scakemyer/quasar/broadcast"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
 )
 
 const (
@@ -137,7 +139,7 @@ func (tf *TorrentFile) setSubtitles() {
 		for i := 0; i < numFiles; i++ {
 			if files.FilePath(i) == srtPath {
 				xbmc.PlayerSetSubtitles(util.GetHTTPHost() + "/files/" + srtPath)
-				return;
+				return
 			}
 		}
 	}

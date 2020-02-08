@@ -4,12 +4,13 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/charly3pins/magnetar/bittorrent"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/providers"
+	"github.com/charly3pins/magnetar/xbmc"
+
 	"github.com/gin-gonic/gin"
 	"github.com/op/go-logging"
-	"github.com/scakemyer/quasar/bittorrent"
-	"github.com/scakemyer/quasar/providers"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/xbmc"
 )
 
 var searchLog = logging.MustGetLogger("search")
@@ -20,7 +21,7 @@ func Search(btService *bittorrent.BTService) gin.HandlerFunc {
 		ctx.Writer.Header().Set("Access-Control-Allow-Origin", "*")
 		query := ctx.Query("q")
 
-		if len(searchHistory) > 0 && xbmc.DialogConfirm("Quasar", "LOCALIZE[30262]") {
+		if len(searchHistory) > 0 && xbmc.DialogConfirm("Magnetar", "LOCALIZE[30262]") {
 			choice := xbmc.ListDialog("LOCALIZE[30261]", searchHistory...)
 			query = searchHistory[choice]
 		} else if query == "" {
@@ -35,7 +36,7 @@ func Search(btService *bittorrent.BTService) gin.HandlerFunc {
 		}
 
 		existingTorrent := ExistingTorrent(btService, query)
-		if existingTorrent != "" && xbmc.DialogConfirm("Quasar", "LOCALIZE[30270]") {
+		if existingTorrent != "" && xbmc.DialogConfirm("Magnetar", "LOCALIZE[30270]") {
 			xbmc.PlayURL(UrlQuery(UrlForXBMC("/play"), "uri", existingTorrent))
 			return
 		}
@@ -46,7 +47,7 @@ func Search(btService *bittorrent.BTService) gin.HandlerFunc {
 		torrents := providers.Search(searchers, query)
 
 		if len(torrents) == 0 {
-			xbmc.Notify("Quasar", "LOCALIZE[30205]", config.AddonIcon())
+			xbmc.Notify("Magnetar", "LOCALIZE[30205]", config.AddonIcon())
 			return
 		}
 

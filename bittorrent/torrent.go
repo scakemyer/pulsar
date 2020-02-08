@@ -1,25 +1,26 @@
 package bittorrent
 
 import (
-	"os"
-	"io"
-	"fmt"
-	"time"
 	"bytes"
-	"regexp"
-	"strings"
-	"net/url"
-	"net/http"
 	"crypto/sha1"
+	"encoding/base32"
 	"encoding/hex"
 	"encoding/json"
-	"encoding/base32"
+	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
 	"path/filepath"
+	"regexp"
+	"strings"
+	"time"
+
+	"github.com/charly3pins/magnetar/cloudhole"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/xbmc"
 
 	"github.com/op/go-logging"
-	"github.com/scakemyer/quasar/cloudhole"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/xbmc"
 	"github.com/zeebo/bencode"
 )
 
@@ -72,7 +73,7 @@ var (
 		regexp.MustCompile(`\W+(4K|2160p)\W*`):                   Resolution4k,
 	}
 	Resolutions = []string{"", "480p", "720p", "1080p", "1440p", "4K"}
-	Colors = []string{"", "FFA56F01", "FF539A02", "FF0166FC", "FFF15052", "FF6BB9EC"}
+	Colors      = []string{"", "FFA56F01", "FF539A02", "FF0166FC", "FFF15052", "FF6BB9EC"}
 )
 
 const (
@@ -329,7 +330,7 @@ func (t *Torrent) Resolve() error {
 		if clearance.Cookies != "" {
 			req.Header.Set("User-Agent", clearance.UserAgent)
 			if cookies := req.Header.Get("Cookie"); cookies != "" {
-				req.Header.Set("Cookie", cookies + "; " + clearance.Cookies)
+				req.Header.Set("Cookie", cookies+"; "+clearance.Cookies)
 			} else {
 				req.Header.Add("Cookie", clearance.Cookies)
 			}

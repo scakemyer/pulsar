@@ -4,8 +4,8 @@ import (
 	"math"
 	"sort"
 
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/bittorrent"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/bittorrent"
 )
 
 type BySeeds []*bittorrent.Torrent

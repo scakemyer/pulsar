@@ -1,35 +1,35 @@
 package main
 
 import (
+	"net/http"
 	"os"
-	"time"
-	"strings"
+	"path/filepath"
 	"runtime"
 	"strconv"
-	"net/http"
-	"path/filepath"
+	"strings"
+	"time"
+
+	"github.com/charly3pins/magnetar/api"
+	"github.com/charly3pins/magnetar/bittorrent"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/lockfile"
+	"github.com/charly3pins/magnetar/trakt"
+	"github.com/charly3pins/magnetar/util"
+	"github.com/charly3pins/magnetar/xbmc"
 
 	"github.com/boltdb/bolt"
 	"github.com/op/go-logging"
-	"github.com/scakemyer/quasar/api"
-	"github.com/scakemyer/quasar/lockfile"
-	"github.com/scakemyer/quasar/bittorrent"
-	"github.com/scakemyer/quasar/config"
-	"github.com/scakemyer/quasar/trakt"
-	"github.com/scakemyer/quasar/util"
-	"github.com/scakemyer/quasar/xbmc"
 )
 
 var log = logging.MustGetLogger("main")
 
 const (
-	QuasarLogo = `________
-\_____  \  __ _______    ___________ _______
- /  / \  \|  |  \__  \  /  ___/\__  \\_  __ \
-/   \_/.  \  |  // __ \_\___ \  / __ \|  | \/
-\_____\ \_/____/(____  /____  >(____  /__|
-       \__>          \/     \/      \/
-`
+	MagnetarLogo = `                    __                
+	_____ _____     ____   ____   _____/  |______ _______ 
+   /     \\__  \   / ___\ /    \_/ __ \   __\__  \\_  __ \
+  |  Y Y  \/ __ \_/ /_/  >   |  \  ___/|  |  / __ \|  | \/
+  |__|_|  (____  /\___  /|___|  /\___  >__| (____  /__|   
+		\/     \//_____/      \/     \/          \/       `
 )
 
 func ensureSingleInstance(conf *config.Configuration) (lock *lockfile.LockFile, err error) {
@@ -112,10 +112,10 @@ func main() {
 	))
 	logging.SetBackend(logging.NewLogBackend(os.Stdout, "", 0))
 
-	for _, line := range strings.Split(QuasarLogo, "\n") {
+	for _, line := range strings.Split(MagnetarLogo, "\n") {
 		log.Debug(line)
 	}
-	log.Infof("Version: %s Go: %s", util.Version[1:len(util.Version) - 1], runtime.Version())
+	log.Infof("Version: %s Go: %s", util.Version[1:len(util.Version)-1], runtime.Version())
 
 	conf := config.Reload()
 
@@ -132,7 +132,7 @@ func main() {
 
 	db, err := bolt.Open(filepath.Join(conf.Info.Profile, "library.db"), 0600, &bolt.Options{
 		ReadOnly: false,
-		Timeout: 15 * time.Second,
+		Timeout:  15 * time.Second,
 	})
 	if err != nil {
 		log.Error(err)
@@ -174,7 +174,7 @@ func main() {
 		shutdown()
 	}))
 
-	xbmc.Notify("Quasar", "LOCALIZE[30208]", config.AddonIcon())
+	xbmc.Notify("Magnetar", "LOCALIZE[30208]", config.AddonIcon())
 
 	go func() {
 		if !wasFirstRun {
@@ -188,6 +188,8 @@ func main() {
 	go api.LibraryUpdate(db)
 	go api.LibraryListener()
 	go trakt.TokenRefreshHandler()
+	go trakt.WatchedShowsProgress()
+	go trakt.WatchedMovies()
 
-	http.ListenAndServe(":" + strconv.Itoa(config.ListenPort), nil)
+	http.ListenAndServe(":"+strconv.Itoa(config.ListenPort), nil)
 }
