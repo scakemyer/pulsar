@@ -1,9 +1,9 @@
-Quasar daemon [![Build Status](https://travis-ci.org/charly3pins/quasar.svg?branch=master)](https://travis-ci.org/charly3pins/quasar)
+Magnetar daemon [![Build Status](https://travis-ci.org/charly3pins/magnetar.svg?branch=master)](https://travis-ci.org/charly3pins/magnetar)
 ======
 
 Fork of the great [Quasar](https://github.com/scakemyer/quasar)
 
-1. Build the [cross-compiler](https://github.com/scakemyer/cross-compiler) and [libtorrent-go](https://github.com/scakemyer/libtorrent-go) images,
+1. Build the [cross-compiler](https://github.com/charly3pins/cross-compiler) and [libtorrent-go](https://https://github.com/charly3pins/libtorrent-go) images,
     or alternatively, pull the libtorrent-go images from [Docker Hub](https://hub.docker.com/r/quasarhq/libtorrent-go):
 
     ```
@@ -24,7 +24,7 @@ Fork of the great [Quasar](https://github.com/scakemyer/quasar)
 3. go get
 
     ```
-    go get -d github.com/charly3pins/quasar
+    go get -d github.com/charly3pins/magnetar
     ```
 
     For Windows support, but required for all builds, you also need:
