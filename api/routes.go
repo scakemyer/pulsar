@@ -2,19 +2,20 @@ package api
 
 import (
 	"fmt"
-	"path"
-	"time"
-	"net/url"
 	"net/http"
+	"net/url"
+	"path"
 	"path/filepath"
+	"time"
+
+	"github.com/charly3pins/magnetar/api/repository"
+	"github.com/charly3pins/magnetar/bittorrent"
+	"github.com/charly3pins/magnetar/cache"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/providers"
+	"github.com/charly3pins/magnetar/util"
 
 	"github.com/gin-gonic/gin"
-	"github.com/charly3pins/quasar/util"
-	"github.com/charly3pins/quasar/cache"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/providers"
-	"github.com/charly3pins/quasar/bittorrent"
-	"github.com/charly3pins/quasar/api/repository"
 )
 
 const (
@@ -44,7 +45,7 @@ func Routes(btService *bittorrent.BTService) *gin.Engine {
 		web.GET("/", func(c *gin.Context) {
 			c.HTML(http.StatusOK, "index.html", nil)
 		})
-	  web.Static("/static", filepath.Join(config.Get().Info.Path, "resources", "web", "static"))
+		web.Static("/static", filepath.Join(config.Get().Info.Path, "resources", "web", "static"))
 		web.StaticFile("/favicon.ico", filepath.Join(config.Get().Info.Path, "resources", "web", "favicon.ico"))
 	}
 

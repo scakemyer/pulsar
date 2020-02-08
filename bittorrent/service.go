@@ -1,31 +1,33 @@
 package bittorrent
 
 import (
-	"os"
-	"io"
-	"fmt"
-	"time"
 	"bytes"
-	"errors"
-	"regexp"
-	"strings"
-	"strconv"
-	"io/ioutil"
-	"math/rand"
 	"encoding/hex"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"io"
+	"io/ioutil"
+	"math/rand"
+	"os"
 	"path/filepath"
+	"regexp"
+	"strconv"
+	"strings"
+	"time"
+
+	"github.com/charly3pins/magnetar/broadcast"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/diskusage"
+	"github.com/charly3pins/magnetar/tmdb"
+	"github.com/charly3pins/magnetar/util"
+	"github.com/charly3pins/magnetar/xbmc"
+
+	"github.com/charly3pins/libtorrent-go"
 
 	"github.com/boltdb/bolt"
-	"github.com/op/go-logging"
 	"github.com/dustin/go-humanize"
-	"github.com/scakemyer/libtorrent-go"
-	"github.com/charly3pins/quasar/broadcast"
-	"github.com/charly3pins/quasar/diskusage"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/tmdb"
-	"github.com/charly3pins/quasar/util"
-	"github.com/charly3pins/quasar/xbmc"
+	"github.com/op/go-logging"
 	"github.com/zeebo/bencode"
 )
 
@@ -191,7 +193,7 @@ func NewBTService(conf BTConfiguration, db *bolt.DB) *BTService {
 		_, err := tx.CreateBucketIfNotExists([]byte(Bucket))
 		if err != nil {
 			s.log.Error(err)
-			xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+			xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 			return err
 		}
 		return nil
@@ -319,7 +321,7 @@ func (s *BTService) configure() {
 		settings.SetBool(libtorrent.SettingByName("use_read_cache"), true)
 		settings.SetBool(libtorrent.SettingByName("coalesce_reads"), true)
 		settings.SetBool(libtorrent.SettingByName("coalesce_writes"), true)
-		settings.SetInt(libtorrent.SettingByName("max_queued_disk_bytes"), 10 * 1024 * 1024)
+		settings.SetInt(libtorrent.SettingByName("max_queued_disk_bytes"), 10*1024*1024)
 		settings.SetInt(libtorrent.SettingByName("cache_size"), -1)
 	}
 
@@ -331,11 +333,11 @@ func (s *BTService) configure() {
 
 	if s.config.LimitAfterBuffering == false {
 		if s.config.MaxDownloadRate > 0 {
-			s.log.Infof("Rate limiting download to %dkB/s", s.config.MaxDownloadRate / 1024)
+			s.log.Infof("Rate limiting download to %dkB/s", s.config.MaxDownloadRate/1024)
 			settings.SetInt(libtorrent.SettingByName("download_rate_limit"), s.config.MaxDownloadRate)
 		}
 		if s.config.MaxUploadRate > 0 {
-			s.log.Infof("Rate limiting upload to %dkB/s", s.config.MaxUploadRate / 1024)
+			s.log.Infof("Rate limiting upload to %dkB/s", s.config.MaxUploadRate/1024)
 			// If we have an upload rate, use the nicer bittyrant choker
 			settings.SetInt(libtorrent.SettingByName("upload_rate_limit"), s.config.MaxUploadRate)
 			settings.SetInt(libtorrent.SettingByName("choking_algorithm"), int(libtorrent.SettingsPackBittyrantChoker))
@@ -392,9 +394,9 @@ func (s *BTService) configure() {
 
 	// Set alert_mask here so it also applies on reconfigure...
 	settings.SetInt(libtorrent.SettingByName("alert_mask"), int(
-		libtorrent.AlertStatusNotification |
-		libtorrent.AlertStorageNotification |
-		libtorrent.AlertErrorNotification))
+		libtorrent.AlertStatusNotification|
+			libtorrent.AlertStorageNotification|
+			libtorrent.AlertErrorNotification))
 
 	s.packSettings = settings
 	s.Session.GetHandle().ApplySettings(s.packSettings)
@@ -434,9 +436,9 @@ func (s *BTService) startServices() {
 
 	listenInterfacesStrings := make([]string, 0)
 	for _, listenInterface := range listenInterfaces {
-		listenInterfacesStrings = append(listenInterfacesStrings, listenInterface + ":" + listenPorts[rand.Intn(len(listenPorts))])
+		listenInterfacesStrings = append(listenInterfacesStrings, listenInterface+":"+listenPorts[rand.Intn(len(listenPorts))])
 		if len(listenPorts) > 1 {
-			listenInterfacesStrings = append(listenInterfacesStrings, listenInterface + ":" + listenPorts[rand.Intn(len(listenPorts))])
+			listenInterfacesStrings = append(listenInterfacesStrings, listenInterface+":"+listenPorts[rand.Intn(len(listenPorts))])
 		}
 	}
 	s.packSettings.SetStr(libtorrent.SettingByName("listen_interfaces"), strings.Join(listenInterfacesStrings, ","))
@@ -525,7 +527,7 @@ func (s *BTService) checkAvailableSpace(torrentHandle libtorrent.TorrentHandle) 
 
 		if availableSpace < sizeLeft {
 			s.log.Errorf("Unsufficient free space on %s. Has %d, needs %d.", path, diskStatus.Free, sizeLeft)
-			xbmc.Notify("Quasar", "LOCALIZE[30207]", config.AddonIcon())
+			xbmc.Notify("Magnetar", "LOCALIZE[30207]", config.AddonIcon())
 
 			s.log.Infof("Pausing torrent %s", torrentHandle.Status(uint(libtorrent.TorrentHandleQueryName)).GetName())
 			torrentHandle.AutoManaged(false)
@@ -978,9 +980,9 @@ func (s *BTService) downloadProgress() {
 				}
 				if !s.config.DisableBgProgress {
 					if s.dialogProgressBG == nil {
-						s.dialogProgressBG = xbmc.NewDialogProgressBG("Quasar", "")
+						s.dialogProgressBG = xbmc.NewDialogProgressBG("Magnetar", "")
 					}
-					s.dialogProgressBG.Update(showProgress, "Quasar", showTorrent)
+					s.dialogProgressBG.Update(showProgress, "Magnetar", showTorrent)
 				}
 			} else if !s.config.DisableBgProgress && s.dialogProgressBG != nil {
 				s.dialogProgressBG.Close()
@@ -1091,8 +1093,8 @@ func (s *BTService) alertsConsumer() {
 					entry = saveResumeData.ResumeData()
 				case libtorrent.ExternalIpAlertAlertType:
 					splitMessage := strings.Split(alertMessage, ":")
-					splitIP := strings.Split(splitMessage[len(splitMessage) - 1], ".")
-					alertMessage = strings.Join(splitMessage[:len(splitMessage) - 1], ":") + splitIP[0] + ".XX.XX.XX"
+					splitIP := strings.Split(splitMessage[len(splitMessage)-1], ".")
+					alertMessage = strings.Join(splitMessage[:len(splitMessage)-1], ":") + splitIP[0] + ".XX.XX.XX"
 				}
 				alert := &Alert{
 					Type:     alertType,
@@ -1124,11 +1126,11 @@ func (s *BTService) Alerts() (<-chan *Alert, chan<- interface{}) {
 func (s *BTService) logAlerts() {
 	alerts, _ := s.Alerts()
 	for alert := range alerts {
-		if alert.Category & int(libtorrent.AlertErrorNotification) != 0 {
+		if alert.Category&int(libtorrent.AlertErrorNotification) != 0 {
 			s.libtorrentLog.Errorf("%s: %s", alert.What, alert.Message)
-		} else if alert.Category & int(libtorrent.AlertDebugNotification) != 0 {
+		} else if alert.Category&int(libtorrent.AlertDebugNotification) != 0 {
 			s.libtorrentLog.Debugf("%s: %s", alert.What, alert.Message)
-		} else if alert.Category & int(libtorrent.AlertPerformanceWarning) != 0 {
+		} else if alert.Category&int(libtorrent.AlertPerformanceWarning) != 0 {
 			s.libtorrentLog.Warningf("%s: %s", alert.What, alert.Message)
 		} else {
 			s.libtorrentLog.Noticef("%s: %s", alert.What, alert.Message)

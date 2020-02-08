@@ -1,14 +1,15 @@
 package cache
 
 import (
-	"time"
 	"errors"
-	"strings"
 	"net/http"
+	"strings"
+	"time"
+
+	"github.com/charly3pins/magnetar/util"
 
 	"github.com/gin-gonic/gin"
 	"github.com/op/go-logging"
-	"github.com/charly3pins/quasar/util"
 )
 
 const (

@@ -1,18 +1,19 @@
 package api
 
 import (
+	"github.com/charly3pins/magnetar/cloudhole"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/xbmc"
+
 	"github.com/gin-gonic/gin"
 	logging "github.com/op/go-logging"
-	"github.com/charly3pins/quasar/cloudhole"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/xbmc"
 )
 
 var cmdLog = logging.MustGetLogger("cmd")
 
 func ClearCache(ctx *gin.Context) {
 	clearPageCache(ctx)
-	xbmc.Notify("Quasar", "LOCALIZE[30200]", config.AddonIcon())
+	xbmc.Notify("Magnetar", "LOCALIZE[30200]", config.AddonIcon())
 }
 
 func ClearPageCache(ctx *gin.Context) {
@@ -21,7 +22,7 @@ func ClearPageCache(ctx *gin.Context) {
 
 func ResetClearances(ctx *gin.Context) {
 	cloudhole.ResetClearances()
-	xbmc.Notify("Quasar", "LOCALIZE[30264]", config.AddonIcon())
+	xbmc.Notify("Magnetar", "LOCALIZE[30264]", config.AddonIcon())
 }
 
 func SetViewMode(ctx *gin.Context) {

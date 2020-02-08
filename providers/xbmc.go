@@ -10,14 +10,14 @@ import (
 	"sync"
 	"time"
 
+	"github.com/charly3pins/magnetar/bittorrent"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/tmdb"
+	"github.com/charly3pins/magnetar/tvdb"
+	"github.com/charly3pins/magnetar/util"
+	"github.com/charly3pins/magnetar/xbmc"
 	"github.com/gin-gonic/gin"
 	"github.com/op/go-logging"
-	"github.com/charly3pins/quasar/bittorrent"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/tmdb"
-	"github.com/charly3pins/quasar/tvdb"
-	"github.com/charly3pins/quasar/util"
-	"github.com/charly3pins/quasar/xbmc"
 )
 
 const (
@@ -72,7 +72,7 @@ func CallbackHandler(ctx *gin.Context) {
 func getSearchers() []interface{} {
 	list := make([]interface{}, 0)
 	for _, addon := range xbmc.GetAddons("xbmc.python.script", "executable", true).Addons {
-		if strings.HasPrefix(addon.ID, "script.quasar.") {
+		if strings.HasPrefix(addon.ID, "script.magnetar.") {
 			list = append(list, NewAddonSearcher(addon.ID))
 		}
 	}
@@ -145,11 +145,11 @@ func (as *AddonSearcher) GetSeasonSearchObject(show *tmdb.Show, season *tmdb.Sea
 	}
 
 	return &SeasonSearchObject{
-		IMDBId:         show.ExternalIDs.IMDBId,
-		TVDBId:         util.StrInterfaceToInt(show.ExternalIDs.TVDBID),
-		Title:          NormalizeTitle(title),
-		Year:           year,
-		Season:         season.Season,
+		IMDBId: show.ExternalIDs.IMDBId,
+		TVDBId: util.StrInterfaceToInt(show.ExternalIDs.TVDBID),
+		Title:  NormalizeTitle(title),
+		Year:   year,
+		Season: season.Season,
 	}
 }
 
@@ -181,10 +181,10 @@ func (as *AddonSearcher) GetEpisodeSearchObject(show *tmdb.Show, episode *tmdb.E
 		}
 		if countryIsJP && genreIsAnim {
 			tvdbShow, err := tvdb.GetShow(tvdbId, config.Get().Language)
-			if err == nil && len(tvdbShow.Seasons) >= episode.SeasonNumber + 1 {
+			if err == nil && len(tvdbShow.Seasons) >= episode.SeasonNumber+1 {
 				tvdbSeason := tvdbShow.Seasons[episode.SeasonNumber]
 				if len(tvdbSeason.Episodes) >= episode.EpisodeNumber {
-					tvdbEpisode := tvdbSeason.Episodes[episode.EpisodeNumber - 1]
+					tvdbEpisode := tvdbSeason.Episodes[episode.EpisodeNumber-1]
 					if tvdbEpisode.AbsoluteNumber > 0 {
 						absoluteNumber = tvdbEpisode.AbsoluteNumber
 					}

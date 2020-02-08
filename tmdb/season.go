@@ -2,14 +2,15 @@ package tmdb
 
 import (
 	"fmt"
+	"math/rand"
 	"path"
 	"time"
-	"math/rand"
+
+	"github.com/charly3pins/magnetar/cache"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/xbmc"
 
 	"github.com/jmcvetta/napping"
-	"github.com/charly3pins/quasar/cache"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/xbmc"
 )
 
 func GetSeason(showId int, seasonNumber int, language string) *Season {
@@ -19,9 +20,9 @@ func GetSeason(showId int, seasonNumber int, language string) *Season {
 	if err := cacheStore.Get(key, &season); err != nil {
 		rateLimiter.Call(func() {
 			urlValues := napping.Params{
-				"api_key": apiKey,
+				"api_key":            apiKey,
 				"append_to_response": "credits,images,videos,external_ids",
-				"language": language,
+				"language":           language,
 			}.AsUrlValues()
 			resp, err := napping.Get(
 				fmt.Sprintf("%stv/%d/season/%d", tmdbEndpoint, showId, seasonNumber),
@@ -31,27 +32,21 @@ func GetSeason(showId int, seasonNumber int, language string) *Season {
 			)
 			if err != nil {
 				log.Error(err.Error())
-				xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+				xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 			} else if resp.Status() == 429 {
 				log.Warningf("Rate limit exceeded getting season %d of show %d, cooling down...", seasonNumber, showId)
 				rateLimiter.CoolDown(resp.HttpResponse().Header)
 			} else if resp.Status() != 200 {
 				message := fmt.Sprintf("Bad status getting season %d of show %d: %d", seasonNumber, showId, resp.Status())
 				log.Error(message)
-				xbmc.Notify("Quasar", message, config.AddonIcon())
+				xbmc.Notify("Magnetar", message, config.AddonIcon())
 			}
 		})
 		season.EpisodeCount = len(season.Episodes)
-
-		// Fix for shows that have translations but return empty strings
-		// for episode names and overviews.
-		// We detect if episodes have their name filled, and if not re-query
-		// with no language set.
-		// See https://github.com/scakemyer/plugin.video.quasar/issues/249
 		if season.EpisodeCount > 0 {
 			for index := 0; index < season.EpisodeCount; index++ {
 				if season.Episodes[index].Name == "" {
-					season.Episodes[index] = GetEpisode(showId, seasonNumber, index + 1, "")
+					season.Episodes[index] = GetEpisode(showId, seasonNumber, index+1, "")
 				}
 			}
 		}
@@ -61,12 +56,12 @@ func GetSeason(showId int, seasonNumber int, language string) *Season {
 			traktFrequency := config.Get().TraktSyncFrequency * 60
 			if updateFrequency == 0 && traktFrequency == 0 {
 				updateFrequency = 1440
-			} else if updateFrequency > traktFrequency  && traktFrequency != 0 {
+			} else if updateFrequency > traktFrequency && traktFrequency != 0 {
 				updateFrequency = traktFrequency - 1
 			} else {
 				updateFrequency = updateFrequency - 1
 			}
-			cacheStore.Set(key, season, time.Duration(updateFrequency) * time.Minute)
+			cacheStore.Set(key, season, time.Duration(updateFrequency)*time.Minute)
 		}
 	}
 	return season

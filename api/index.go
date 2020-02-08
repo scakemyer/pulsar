@@ -1,9 +1,10 @@
 package api
 
 import (
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/xbmc"
+
 	"github.com/gin-gonic/gin"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/xbmc"
 )
 
 func init() {

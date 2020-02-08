@@ -2,15 +2,16 @@ package providers
 
 import (
 	"sort"
+	"strings"
 	"sync"
 	"time"
-	"strings"
+
+	"github.com/charly3pins/magnetar/bittorrent"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/tmdb"
+	"github.com/charly3pins/magnetar/xbmc"
 
 	"github.com/op/go-logging"
-	"github.com/charly3pins/quasar/bittorrent"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/tmdb"
-	"github.com/charly3pins/quasar/xbmc"
 )
 
 const (
@@ -33,7 +34,7 @@ const (
 
 var (
 	trackerTimeout = 3100 * time.Millisecond
-	log = logging.MustGetLogger("linkssearch")
+	log            = logging.MustGetLogger("linkssearch")
 )
 
 func Search(searchers []Searcher, query string) []*bittorrent.Torrent {
@@ -148,7 +149,7 @@ func processLinks(torrentsChan chan *bittorrent.Torrent, sortType int) []*bittor
 		}(torrent)
 	}
 
-	dialogProgressBG := xbmc.NewDialogProgressBG("Quasar", "LOCALIZE[30117]", "LOCALIZE[30117]", "LOCALIZE[30118]")
+	dialogProgressBG := xbmc.NewDialogProgressBG("Magnetar", "LOCALIZE[30117]", "LOCALIZE[30117]", "LOCALIZE[30118]")
 	go func() {
 		for {
 			select {
@@ -160,7 +161,7 @@ func processLinks(torrentsChan chan *bittorrent.Torrent, sortType int) []*bittor
 				}
 				if dialogProgressBG != nil {
 					if msg != "skip" {
-						dialogProgressBG.Update(progress * 100 / progressTotal, "Quasar", msg)
+						dialogProgressBG.Update(progress*100/progressTotal, "Magnetar", msg)
 					}
 				} else {
 					return
@@ -170,7 +171,7 @@ func processLinks(torrentsChan chan *bittorrent.Torrent, sortType int) []*bittor
 	}()
 
 	wg.Wait()
-	dialogProgressBG.Update(100, "Quasar", "LOCALIZE[30117]")
+	dialogProgressBG.Update(100, "Magnetar", "LOCALIZE[30117]")
 
 	for _, torrent := range torrents {
 		if torrent.InfoHash == "" {
@@ -236,10 +237,10 @@ func processLinks(torrentsChan chan *bittorrent.Torrent, sortType int) []*bittor
 
 	log.Infof("Scraping torrent metrics from %d trackers...\n", len(trackers))
 
-	progressTotal = len(trackers) * 2 + 1
+	progressTotal = len(trackers)*2 + 1
 	progress = 0
 	progressMsg := "LOCALIZE[30118]"
-	dialogProgressBG.Update(progress * 100 / progressTotal, "Quasar", progressMsg)
+	dialogProgressBG.Update(progress*100/progressTotal, "Magnetar", progressMsg)
 
 	scrapeResults := make(chan []bittorrent.ScrapeResponseEntry, len(trackers))
 	failedConnect := 0
@@ -271,12 +272,12 @@ func processLinks(torrentsChan chan *bittorrent.Torrent, sortType int) []*bittor
 
 				for {
 					select {
-					case <- failed:
+					case <-failed:
 						return
 					case <-time.After(trackerTimeout): // Connect timeout...
 						failedConnect += 1
 						return
-					case <- connected:
+					case <-connected:
 						scraped := make(chan bool)
 						go func(tracker *bittorrent.Tracker) {
 							scrapeResult = tracker.Scrape(torrents)
@@ -299,7 +300,7 @@ func processLinks(torrentsChan chan *bittorrent.Torrent, sortType int) []*bittor
 		}
 		wg.Wait()
 
-		dialogProgressBG.Update(100, "Quasar", progressMsg)
+		dialogProgressBG.Update(100, "Magnetar", progressMsg)
 
 		if failedConnect > 0 {
 			log.Warningf("Failed to connect to %d tracker(s)", failedConnect)

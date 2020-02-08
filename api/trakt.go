@@ -1,21 +1,22 @@
 package api
 
 import (
-	"os"
 	"fmt"
+	"os"
 	"path"
-	"time"
+	"path/filepath"
 	"strconv"
 	"strings"
-	"path/filepath"
+	"time"
 
-	"github.com/op/go-logging"
+	"github.com/charly3pins/magnetar/cache"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/tmdb"
+	"github.com/charly3pins/magnetar/trakt"
+	"github.com/charly3pins/magnetar/xbmc"
+
 	"github.com/gin-gonic/gin"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/cache"
-	"github.com/charly3pins/quasar/trakt"
-	"github.com/charly3pins/quasar/xbmc"
-	"github.com/charly3pins/quasar/tmdb"
+	"github.com/op/go-logging"
 )
 
 var traktLog = logging.MustGetLogger("trakt")
@@ -69,7 +70,7 @@ func inShowsWatched(showId int) bool {
 		return false
 	}
 
-	if trakt.WatchedShowsMap[showId].Aired - trakt.WatchedShowsMap[showId].Completed == 0 {
+	if trakt.WatchedShowsMap[showId].Aired-trakt.WatchedShowsMap[showId].Completed == 0 {
 		//traktLog.Infof("showid: %d watched", showId)
 		return true
 	}
@@ -91,7 +92,7 @@ func addToShowsWatched(showId int) bool {
 			return false
 		}
 	}
-		
+
 	aired := trakt.WatchedShowsMap[showId].Aired
 	trakt.WatchedShowsMap[showId] = trakt.AiredStatus{Aired: aired, Completed: aired}
 
@@ -152,9 +153,9 @@ func inSeasonsWatched(showId, seasonNumber int) bool {
 
 	if _, ok := trakt.WatchedSeasonsMap[showId][seasonNumber]; ok {
 		if trakt.WatchedSeasonsMap[showId][seasonNumber].Aired > 0 {
-			if trakt.WatchedSeasonsMap[showId][seasonNumber].Aired - trakt.WatchedSeasonsMap[showId][seasonNumber].Completed == 0 {
-			//traktLog.Infof("showid: %d season %d is watched", showId, seasonNumber)
-			return true
+			if trakt.WatchedSeasonsMap[showId][seasonNumber].Aired-trakt.WatchedSeasonsMap[showId][seasonNumber].Completed == 0 {
+				//traktLog.Infof("showid: %d season %d is watched", showId, seasonNumber)
+				return true
 			}
 		}
 	}
@@ -273,7 +274,7 @@ func addToEpisodesWatched(showId, seasonNumber, episodeNumber int) bool {
 			completed := trakt.WatchedShowsMap[showId].Completed + 1
 			trakt.WatchedShowsMap[showId] = trakt.AiredStatus{Aired: aired, Completed: completed}
 			//traktLog.Infof("setting show: %d aired: %d completed: %d", showId, aired, completed)
-			
+
 			aired = trakt.WatchedSeasonsMap[showId][seasonNumber].Aired
 			completed = trakt.WatchedSeasonsMap[showId][seasonNumber].Completed + 1
 			trakt.WatchedSeasonsMap[showId][seasonNumber] = trakt.AiredStatus{Aired: aired, Completed: completed}
@@ -329,7 +330,7 @@ func inMoviesWatchlist(tmdbId int) bool {
 	key := fmt.Sprintf("com.trakt.watchlist.movies")
 	if err := cacheStore.Get(key, &movies); err != nil {
 		movies, _ := trakt.WatchlistMovies()
-		cacheStore.Set(key, movies, 30 * time.Second)
+		cacheStore.Set(key, movies, 30*time.Second)
 	}
 
 	for _, movie := range movies {
@@ -351,7 +352,7 @@ func inShowsWatchlist(tmdbId int) bool {
 	key := fmt.Sprintf("com.trakt.watchlist.shows")
 	if err := cacheStore.Get(key, &shows); err != nil {
 		shows, _ := trakt.WatchlistShows()
-		cacheStore.Set(key, shows, 30 * time.Second)
+		cacheStore.Set(key, shows, 30*time.Second)
 	}
 
 	for _, show := range shows {
@@ -373,7 +374,7 @@ func inMoviesCollection(tmdbId int) bool {
 	key := fmt.Sprintf("com.trakt.collection.movies")
 	if err := cacheStore.Get(key, &movies); err != nil {
 		movies, _ := trakt.CollectionMovies()
-		cacheStore.Set(key, movies, 30 * time.Second)
+		cacheStore.Set(key, movies, 30*time.Second)
 	}
 
 	for _, movie := range movies {
@@ -395,7 +396,7 @@ func inShowsCollection(tmdbId int) bool {
 	key := fmt.Sprintf("com.trakt.collection.shows")
 	if err := cacheStore.Get(key, &shows); err != nil {
 		shows, _ := trakt.CollectionShows()
-		cacheStore.Set(key, shows, 30 * time.Second)
+		cacheStore.Set(key, shows, 30*time.Second)
 	}
 
 	for _, show := range shows {
@@ -414,7 +415,7 @@ func AuthorizeTrakt(ctx *gin.Context) {
 	if err == nil {
 		ctx.String(200, "")
 	} else {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 		ctx.String(200, "")
 	}
 }
@@ -425,7 +426,7 @@ func AuthorizeTrakt(ctx *gin.Context) {
 func WatchlistMovies(ctx *gin.Context) {
 	movies, err := trakt.WatchlistMovies()
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktMovies(ctx, movies, -1, 0)
 }
@@ -433,7 +434,7 @@ func WatchlistMovies(ctx *gin.Context) {
 func WatchlistShows(ctx *gin.Context) {
 	shows, err := trakt.WatchlistShows()
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktShows(ctx, shows, -1, 0)
 }
@@ -441,7 +442,7 @@ func WatchlistShows(ctx *gin.Context) {
 func CollectionMovies(ctx *gin.Context) {
 	movies, err := trakt.CollectionMovies()
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktMovies(ctx, movies, -1, 0)
 }
@@ -449,7 +450,7 @@ func CollectionMovies(ctx *gin.Context) {
 func CollectionShows(ctx *gin.Context) {
 	shows, err := trakt.CollectionShows()
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktShows(ctx, shows, -1, 0)
 }
@@ -460,7 +461,7 @@ func UserlistMovies(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	movies, err := trakt.ListItemsMovies(listId, true)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktMovies(ctx, movies, -1, page)
 }
@@ -471,7 +472,7 @@ func UserlistShows(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, err := trakt.ListItemsShows(listId, true)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktShows(ctx, shows, -1, page)
 }
@@ -491,11 +492,11 @@ func AddMovieToWatchlist(ctx *gin.Context) {
 	tmdbId := ctx.Params.ByName("tmdbId")
 	resp, err := trakt.AddToWatchlist("movies", tmdbId)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 201 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Movie added to watchlist", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Movie added to watchlist", config.AddonIcon())
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.watchlist.movies"))
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.movies.watchlist"))
 		clearPageCache(ctx)
@@ -506,11 +507,11 @@ func RemoveMovieFromWatchlist(ctx *gin.Context) {
 	tmdbId := ctx.Params.ByName("tmdbId")
 	resp, err := trakt.RemoveFromWatchlist("movies", tmdbId)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 200 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Movie removed from watchlist", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Movie removed from watchlist", config.AddonIcon())
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.watchlist.movies"))
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.movies.watchlist"))
 		clearPageCache(ctx)
@@ -521,11 +522,11 @@ func AddShowToWatchlist(ctx *gin.Context) {
 	tmdbId := ctx.Params.ByName("showId")
 	resp, err := trakt.AddToWatchlist("shows", tmdbId)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 201 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed %d", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed %d", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Show added to watchlist", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Show added to watchlist", config.AddonIcon())
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.watchlist.shows"))
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.shows.watchlist"))
 		clearPageCache(ctx)
@@ -536,11 +537,11 @@ func RemoveShowFromWatchlist(ctx *gin.Context) {
 	tmdbId := ctx.Params.ByName("showId")
 	resp, err := trakt.RemoveFromWatchlist("shows", tmdbId)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 200 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Show removed from watchlist", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Show removed from watchlist", config.AddonIcon())
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.watchlist.shows"))
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.shows.watchlist"))
 		clearPageCache(ctx)
@@ -551,11 +552,11 @@ func AddMovieToCollection(ctx *gin.Context) {
 	tmdbId := ctx.Params.ByName("tmdbId")
 	resp, err := trakt.AddToCollection("movies", tmdbId)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 201 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Movie added to collection", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Movie added to collection", config.AddonIcon())
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.collection.movies"))
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.movies.collection"))
 		clearPageCache(ctx)
@@ -566,11 +567,11 @@ func RemoveMovieFromCollection(ctx *gin.Context) {
 	tmdbId := ctx.Params.ByName("tmdbId")
 	resp, err := trakt.RemoveFromCollection("movies", tmdbId)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 200 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Movie removed from collection", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Movie removed from collection", config.AddonIcon())
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.collection.movies"))
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.movies.collection"))
 		clearPageCache(ctx)
@@ -581,11 +582,11 @@ func AddShowToCollection(ctx *gin.Context) {
 	tmdbId := ctx.Params.ByName("showId")
 	resp, err := trakt.AddToCollection("shows", tmdbId)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 201 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Show added to collection", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Show added to collection", config.AddonIcon())
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.collection.shows"))
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.shows.collection"))
 		clearPageCache(ctx)
@@ -596,11 +597,11 @@ func RemoveShowFromCollection(ctx *gin.Context) {
 	tmdbId := ctx.Params.ByName("showId")
 	resp, err := trakt.RemoveFromCollection("shows", tmdbId)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 200 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Show removed from collection", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Show removed from collection", config.AddonIcon())
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.collection.shows"))
 		os.Remove(filepath.Join(config.Get().Info.Profile, "cache", "com.trakt.shows.collection"))
 		clearPageCache(ctx)
@@ -611,11 +612,11 @@ func MarkMovieWatchedInTrakt(ctx *gin.Context) {
 	tmdbId, _ := strconv.Atoi(ctx.Params.ByName("tmdbId"))
 	resp, err := trakt.AddMovieToWatchedHistory2(tmdbId)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 201 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Movie marked as watched in Trakt", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Movie marked as watched in Trakt", config.AddonIcon())
 	}
 	addToMoviesWatched(tmdbId)
 	xbmc.Refresh()
@@ -625,11 +626,11 @@ func MarkMovieUnwatchedInTrakt(ctx *gin.Context) {
 	tmdbId, _ := strconv.Atoi(ctx.Params.ByName("tmdbId"))
 	resp, err := trakt.RemoveMovieFromWatchedHistory2(tmdbId)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 200 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Movie marked as unwatched in Trakt", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Movie marked as unwatched in Trakt", config.AddonIcon())
 	}
 	removeFromMoviesWatched(tmdbId)
 	xbmc.Refresh()
@@ -639,11 +640,11 @@ func MarkShowWatchedInTrakt(ctx *gin.Context) {
 	showId, _ := strconv.Atoi(ctx.Params.ByName("showId"))
 	resp, err := trakt.AddEpisodeToWatchedHistory2(showId, -1, -1)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 201 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Show marked as watched in Trakt", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Show marked as watched in Trakt", config.AddonIcon())
 	}
 	addToShowsWatched(showId)
 	xbmc.Refresh()
@@ -653,11 +654,11 @@ func MarkShowUnwatchedInTrakt(ctx *gin.Context) {
 	showId, _ := strconv.Atoi(ctx.Params.ByName("showId"))
 	resp, err := trakt.RemoveEpisodeFromWatchedHistory2(showId, -1, -1)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 200 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Show marked as unwatched in Trakt", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Show marked as unwatched in Trakt", config.AddonIcon())
 	}
 	removeFromShowsWatched(showId)
 	xbmc.Refresh()
@@ -668,11 +669,11 @@ func MarkSeasonWatchedInTrakt(ctx *gin.Context) {
 	season, _ := strconv.Atoi(ctx.Params.ByName("season"))
 	resp, err := trakt.AddEpisodeToWatchedHistory2(showId, season, -1)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 201 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Season marked as watched in Trakt", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Season marked as watched in Trakt", config.AddonIcon())
 	}
 	addToSeasonsWatched(showId, season)
 	xbmc.Refresh()
@@ -683,11 +684,11 @@ func MarkSeasonUnwatchedInTrakt(ctx *gin.Context) {
 	season, _ := strconv.Atoi(ctx.Params.ByName("season"))
 	resp, err := trakt.RemoveEpisodeFromWatchedHistory2(showId, season, -1)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 200 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Season marked as unwatched in Trakt", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Season marked as unwatched in Trakt", config.AddonIcon())
 	}
 	removeFromSeasonsWatched(showId, season)
 	xbmc.Refresh()
@@ -699,11 +700,11 @@ func MarkEpisodeWatchedInTrakt(ctx *gin.Context) {
 	episode, _ := strconv.Atoi(ctx.Params.ByName("episode"))
 	resp, err := trakt.AddEpisodeToWatchedHistory2(showId, season, episode)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 201 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Episode marked as watched in Trakt", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Episode marked as watched in Trakt", config.AddonIcon())
 	}
 	addToEpisodesWatched(showId, season, episode)
 	xbmc.Refresh()
@@ -715,11 +716,11 @@ func MarkEpisodeUnwatchedInTrakt(ctx *gin.Context) {
 	episode, _ := strconv.Atoi(ctx.Params.ByName("episode"))
 	resp, err := trakt.RemoveEpisodeFromWatchedHistory2(showId, season, episode)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	} else if resp.Status() != 200 {
-		xbmc.Notify("Quasar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
+		xbmc.Notify("Magnetar", fmt.Sprintf("Failed with %d status code", resp.Status()), config.AddonIcon())
 	} else {
-		xbmc.Notify("Quasar", "Episode marked as unwatched in Trakt", config.AddonIcon())
+		xbmc.Notify("Magnetar", "Episode marked as unwatched in Trakt", config.AddonIcon())
 	}
 	removeFromEpisodesWatched(showId, season, episode)
 	xbmc.Refresh()
@@ -729,11 +730,11 @@ func MarkEpisodeUnwatchedInTrakt(ctx *gin.Context) {
 // 	tmdbId := ctx.Params.ByName("episodeId")
 // 	resp, err := trakt.AddToWatchlist("episodes", tmdbId)
 // 	if err != nil {
-// 		xbmc.Notify("Quasar", fmt.Sprintf("Failed: %s", err), config.AddonIcon())
+// 		xbmc.Notify("Magnetar", fmt.Sprintf("Failed: %s", err), config.AddonIcon())
 // 	} else if resp.Status() != 201 {
-// 		xbmc.Notify("Quasar", fmt.Sprintf("Failed: %d", resp.Status()), config.AddonIcon())
+// 		xbmc.Notify("Magnetar", fmt.Sprintf("Failed: %d", resp.Status()), config.AddonIcon())
 // 	} else {
-// 		xbmc.Notify("Quasar", "Episode added to watchlist", config.AddonIcon())
+// 		xbmc.Notify("Magnetar", "Episode added to watchlist", config.AddonIcon())
 // 	}
 // }
 
@@ -746,18 +747,18 @@ func renderTraktMovies(ctx *gin.Context, movies []*trakt.Movies, total int, page
 			total = len(movies)
 		}
 		if total > resultsPerPage {
-			if page * resultsPerPage < total {
+			if page*resultsPerPage < total {
 				hasNextPage = 1
 			}
 		}
 
 		if len(movies) > resultsPerPage {
 			start := (page - 1) % trakt.PagesAtOnce * resultsPerPage
-			movies = movies[start:start + resultsPerPage]
+			movies = movies[start : start+resultsPerPage]
 		}
 	}
 
-	items := make(xbmc.ListItems, 0, len(movies) + hasNextPage)
+	items := make(xbmc.ListItems, 0, len(movies)+hasNextPage)
 
 	for _, movieListing := range movies {
 		if movieListing == nil {
@@ -777,7 +778,6 @@ func renderTraktMovies(ctx *gin.Context, movies []*trakt.Movies, total int, page
 		markWatchedURL := UrlForXBMC("/movie/%d/trakt/watched", movie.IDs.TMDB)
 		markUnwatchedLabel := "LOCALIZE[30314]"
 		markUnwatchedURL := UrlForXBMC("/movie/%d/trakt/unwatched", movie.IDs.TMDB)
- 
 
 		defaultURL := linksURL
 		contextLabel := playLabel
@@ -838,8 +838,8 @@ func renderTraktMovies(ctx *gin.Context, movies []*trakt.Movies, total int, page
 	if page >= 0 && hasNextPage > 0 {
 		path := ctx.Request.URL.Path
 		nextpage := &xbmc.ListItem{
-			Label: "LOCALIZE[30218]",
-			Path: UrlForXBMC(fmt.Sprintf("%s?page=%d", path, page + 1)),
+			Label:     "LOCALIZE[30218]",
+			Path:      UrlForXBMC(fmt.Sprintf("%s?page=%d", path, page+1)),
 			Thumbnail: config.AddonResource("img", "nextpage.png"),
 		}
 		items = append(items, nextpage)
@@ -852,7 +852,7 @@ func TraktPopularMovies(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	movies, total, err := trakt.TopMovies("popular", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktMovies(ctx, movies, total, page)
 }
@@ -862,7 +862,7 @@ func TraktTrendingMovies(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	movies, total, err := trakt.TopMovies("trending", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktMovies(ctx, movies, total, page)
 }
@@ -872,7 +872,7 @@ func TraktMostPlayedMovies(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	movies, total, err := trakt.TopMovies("played", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktMovies(ctx, movies, total, page)
 }
@@ -882,7 +882,7 @@ func TraktMostWatchedMovies(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	movies, total, err := trakt.TopMovies("watched", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktMovies(ctx, movies, total, page)
 }
@@ -892,7 +892,7 @@ func TraktMostCollectedMovies(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	movies, total, err := trakt.TopMovies("collected", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktMovies(ctx, movies, total, page)
 }
@@ -902,7 +902,7 @@ func TraktMostAnticipatedMovies(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	movies, total, err := trakt.TopMovies("anticipated", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktMovies(ctx, movies, total, page)
 }
@@ -910,11 +910,10 @@ func TraktMostAnticipatedMovies(ctx *gin.Context) {
 func TraktBoxOffice(ctx *gin.Context) {
 	movies, _, err := trakt.TopMovies("boxoffice", "1")
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktMovies(ctx, movies, -1, 0)
 }
-
 
 func renderTraktShows(ctx *gin.Context, shows []*trakt.Shows, total int, page int) {
 	hasNextPage := 0
@@ -925,18 +924,18 @@ func renderTraktShows(ctx *gin.Context, shows []*trakt.Shows, total int, page in
 			total = len(shows)
 		}
 		if total > resultsPerPage {
-			if page * resultsPerPage < total {
+			if page*resultsPerPage < total {
 				hasNextPage = 1
 			}
 		}
 
 		if len(shows) >= resultsPerPage {
 			start := (page - 1) % trakt.PagesAtOnce * resultsPerPage
-			shows = shows[start:start + resultsPerPage]
+			shows = shows[start : start+resultsPerPage]
 		}
 	}
 
-	items := make(xbmc.ListItems, 0, len(shows) + hasNextPage)
+	items := make(xbmc.ListItems, 0, len(shows)+hasNextPage)
 
 	for _, showListing := range shows {
 		if showListing == nil {
@@ -1001,8 +1000,8 @@ func renderTraktShows(ctx *gin.Context, shows []*trakt.Shows, total int, page in
 	if page >= 0 && hasNextPage > 0 {
 		path := ctx.Request.URL.Path
 		nextpage := &xbmc.ListItem{
-			Label: "LOCALIZE[30218]",
-			Path: UrlForXBMC(fmt.Sprintf("%s?page=%d", path, page + 1)),
+			Label:     "LOCALIZE[30218]",
+			Path:      UrlForXBMC(fmt.Sprintf("%s?page=%d", path, page+1)),
 			Thumbnail: config.AddonResource("img", "nextpage.png"),
 		}
 		items = append(items, nextpage)
@@ -1015,7 +1014,7 @@ func TraktPopularShows(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, total, err := trakt.TopShows("popular", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktShows(ctx, shows, total, page)
 }
@@ -1025,7 +1024,7 @@ func TraktTrendingShows(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, total, err := trakt.TopShows("trending", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktShows(ctx, shows, total, page)
 }
@@ -1035,7 +1034,7 @@ func TraktMostPlayedShows(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, total, err := trakt.TopShows("played", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktShows(ctx, shows, total, page)
 }
@@ -1045,7 +1044,7 @@ func TraktMostWatchedShows(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, total, err := trakt.TopShows("watched", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktShows(ctx, shows, total, page)
 }
@@ -1055,7 +1054,7 @@ func TraktMostCollectedShows(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, total, err := trakt.TopShows("collected", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktShows(ctx, shows, total, page)
 }
@@ -1065,7 +1064,7 @@ func TraktMostAnticipatedShows(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, total, err := trakt.TopShows("anticipated", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktShows(ctx, shows, total, page)
 }
@@ -1078,7 +1077,7 @@ func TraktMyShows(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, total, err := trakt.CalendarShows("my/shows", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderCalendarShows(ctx, shows, total, page)
 }
@@ -1088,7 +1087,7 @@ func TraktMyNewShows(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, total, err := trakt.CalendarShows("my/shows/new", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderCalendarShows(ctx, shows, total, page)
 }
@@ -1098,7 +1097,7 @@ func TraktMyPremieres(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, total, err := trakt.CalendarShows("my/shows/premieres", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderCalendarShows(ctx, shows, total, page)
 }
@@ -1108,7 +1107,7 @@ func TraktMyMovies(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	movies, total, err := trakt.CalendarMovies("my/movies", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderCalendarMovies(ctx, movies, total, page)
 }
@@ -1118,7 +1117,7 @@ func TraktMyReleases(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	movies, total, err := trakt.CalendarMovies("my/dvd", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderCalendarMovies(ctx, movies, total, page)
 }
@@ -1128,7 +1127,7 @@ func TraktAllShows(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, total, err := trakt.CalendarShows("all/shows", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderCalendarShows(ctx, shows, total, page)
 }
@@ -1138,7 +1137,7 @@ func TraktAllNewShows(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, total, err := trakt.CalendarShows("all/shows/new", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderCalendarShows(ctx, shows, total, page)
 }
@@ -1148,7 +1147,7 @@ func TraktAllPremieres(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	shows, total, err := trakt.CalendarShows("all/shows/premieres", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderCalendarShows(ctx, shows, total, page)
 }
@@ -1158,7 +1157,7 @@ func TraktAllMovies(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	movies, total, err := trakt.CalendarMovies("all/movies", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderCalendarMovies(ctx, movies, total, page)
 }
@@ -1168,7 +1167,7 @@ func TraktAllReleases(ctx *gin.Context) {
 	page, _ := strconv.Atoi(pageParam)
 	movies, total, err := trakt.CalendarMovies("all/dvd", pageParam)
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderCalendarMovies(ctx, movies, total, page)
 }
@@ -1176,7 +1175,7 @@ func TraktAllReleases(ctx *gin.Context) {
 func TraktHistoryShows(ctx *gin.Context) {
 	shows, err := trakt.WatchedShows()
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderTraktShows(ctx, shows, -1, 0)
 }
@@ -1184,7 +1183,7 @@ func TraktHistoryShows(ctx *gin.Context) {
 func TraktProgressShows(ctx *gin.Context) {
 	shows, err := trakt.WatchedShowsProgress()
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 	}
 	renderProgressShows(ctx, shows, -1, 0)
 }
@@ -1198,18 +1197,18 @@ func renderCalendarMovies(ctx *gin.Context, movies []*trakt.CalendarMovie, total
 			total = len(movies)
 		}
 		if total > resultsPerPage {
-			if page * resultsPerPage < total {
+			if page*resultsPerPage < total {
 				hasNextPage = 1
 			}
 		}
 
 		if len(movies) > resultsPerPage {
 			start := (page - 1) % trakt.PagesAtOnce * resultsPerPage
-			movies = movies[start:start + resultsPerPage]
+			movies = movies[start : start+resultsPerPage]
 		}
 	}
 
-	items := make(xbmc.ListItems, 0, len(movies) + hasNextPage)
+	items := make(xbmc.ListItems, 0, len(movies)+hasNextPage)
 
 	for _, movieListing := range movies {
 		if movieListing == nil {
@@ -1239,7 +1238,6 @@ func renderCalendarMovies(ctx *gin.Context, movies []*trakt.CalendarMovie, total
 		markWatchedURL := UrlForXBMC("/movie/%d/trakt/watched", movie.IDs.TMDB)
 		markUnwatchedLabel := "LOCALIZE[30314]"
 		markUnwatchedURL := UrlForXBMC("/movie/%d/trakt/unwatched", movie.IDs.TMDB)
-
 
 		defaultURL := linksURL
 		contextLabel := playLabel
@@ -1293,8 +1291,8 @@ func renderCalendarMovies(ctx *gin.Context, movies []*trakt.CalendarMovie, total
 	if page >= 0 && hasNextPage > 0 {
 		path := ctx.Request.URL.Path
 		nextpage := &xbmc.ListItem{
-			Label: "LOCALIZE[30218]",
-			Path: UrlForXBMC(fmt.Sprintf("%s?page=%d", path, page + 1)),
+			Label:     "LOCALIZE[30218]",
+			Path:      UrlForXBMC(fmt.Sprintf("%s?page=%d", path, page+1)),
 			Thumbnail: config.AddonResource("img", "nextpage.png"),
 		}
 		items = append(items, nextpage)
@@ -1311,18 +1309,18 @@ func renderCalendarShows(ctx *gin.Context, shows []*trakt.CalendarShow, total in
 			total = len(shows)
 		}
 		if total > resultsPerPage {
-			if page * resultsPerPage < total {
+			if page*resultsPerPage < total {
 				hasNextPage = 1
 			}
 		}
 
 		if len(shows) >= resultsPerPage {
 			start := (page - 1) % trakt.PagesAtOnce * resultsPerPage
-			shows = shows[start:start + resultsPerPage]
+			shows = shows[start : start+resultsPerPage]
 		}
 	}
 
-	items := make(xbmc.ListItems, 0, len(shows) + hasNextPage)
+	items := make(xbmc.ListItems, 0, len(shows)+hasNextPage)
 
 	for _, showListing := range shows {
 		if showListing == nil {
@@ -1398,8 +1396,8 @@ func renderCalendarShows(ctx *gin.Context, shows []*trakt.CalendarShow, total in
 	if page >= 0 && hasNextPage > 0 {
 		path := ctx.Request.URL.Path
 		nextpage := &xbmc.ListItem{
-			Label: "LOCALIZE[30218]",
-			Path: UrlForXBMC(fmt.Sprintf("%s?page=%d", path, page + 1)),
+			Label:     "LOCALIZE[30218]",
+			Path:      UrlForXBMC(fmt.Sprintf("%s?page=%d", path, page+1)),
 			Thumbnail: config.AddonResource("img", "nextpage.png"),
 		}
 		items = append(items, nextpage)
@@ -1417,27 +1415,27 @@ func renderProgressShows(ctx *gin.Context, shows []*trakt.ProgressShow, total in
 			total = len(shows)
 		}
 		if total > resultsPerPage {
-			if page * resultsPerPage < total {
+			if page*resultsPerPage < total {
 				hasNextPage = 1
 			}
 		}
 
 		if len(shows) >= resultsPerPage {
 			start := (page - 1) % trakt.PagesAtOnce * resultsPerPage
-			shows = shows[start:start + resultsPerPage]
+			shows = shows[start : start+resultsPerPage]
 		}
 	}
 
-	items := make(xbmc.ListItems, 0, len(shows) + hasNextPage)
+	items := make(xbmc.ListItems, 0, len(shows)+hasNextPage)
 
 	for _, showListing := range shows {
 		if showListing == nil {
 			continue
 		}
-		
+
 		show := showListing.Show
 		epi := showListing.Episode
-		if show == nil || epi == nil{
+		if show == nil || epi == nil {
 			continue
 		}
 
@@ -1451,7 +1449,7 @@ func renderProgressShows(ctx *gin.Context, shows []*trakt.ProgressShow, total in
 			episodeLabel := fmt.Sprintf("%s | %dx%02d %s", show.Title, episode.SeasonNumber, episode.EpisodeNumber, episode.Name)
 
 			item = &xbmc.ListItem{
-				Label: episodeLabel,
+				Label:  episodeLabel,
 				Label2: fmt.Sprintf("%f", episode.VoteAverage),
 				Info: &xbmc.ListItemInfo{
 					Title:         episodeLabel,
@@ -1476,7 +1474,7 @@ func renderProgressShows(ctx *gin.Context, shows []*trakt.ProgressShow, total in
 				item.Art.Thumbnail = tmdb.ImageURL(episode.StillPath, "w500")
 				item.Art.Poster = tmdb.ImageURL(episode.StillPath, "w500")
 			}
-			
+
 			playLabel := "LOCALIZE[30023]"
 			playURL := UrlForXBMC("/show/%d/season/%d/episode/%d/play",
 				show.IDs.TMDB,
@@ -1490,7 +1488,7 @@ func renderProgressShows(ctx *gin.Context, shows []*trakt.ProgressShow, total in
 				episode.EpisodeNumber,
 			)
 			markWatchedLabel := "LOCALIZE[30313]"
-			markWatchedURL := UrlForXBMC("/show/%d/season/%d/episode/%d/trakt/watched", 
+			markWatchedURL := UrlForXBMC("/show/%d/season/%d/episode/%d/trakt/watched",
 				show.IDs.TMDB,
 				episode.SeasonNumber,
 				episode.EpisodeNumber,
@@ -1532,8 +1530,8 @@ func renderProgressShows(ctx *gin.Context, shows []*trakt.ProgressShow, total in
 	if page >= 0 && hasNextPage > 0 {
 		path := ctx.Request.URL.Path
 		nextpage := &xbmc.ListItem{
-			Label: "LOCALIZE[30218]",
-			Path: UrlForXBMC(fmt.Sprintf("%s?page=%d", path, page + 1)),
+			Label:     "LOCALIZE[30218]",
+			Path:      UrlForXBMC(fmt.Sprintf("%s?page=%d", path, page+1)),
 			Thumbnail: config.AddonResource("img", "nextpage.png"),
 		}
 		items = append(items, nextpage)

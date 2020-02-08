@@ -1,22 +1,23 @@
 package api
 
 import (
-	"io"
-	"os"
+	"compress/gzip"
 	"fmt"
+	"io"
+	"net/http"
+	"net/url"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
-	"net/url"
-	"net/http"
-	"compress/gzip"
-	"path/filepath"
+
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/osdb"
+	"github.com/charly3pins/magnetar/util"
+	"github.com/charly3pins/magnetar/xbmc"
 
 	"github.com/gin-gonic/gin"
 	"github.com/op/go-logging"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/osdb"
-	"github.com/charly3pins/quasar/util"
-	"github.com/charly3pins/quasar/xbmc"
 )
 
 var subLog = logging.MustGetLogger("subtitles")
@@ -92,9 +93,9 @@ func SubtitlesIndex(ctx *gin.Context) {
 	)
 	playingFile := xbmc.PlayerGetPlayingFile()
 
-	// Check if we are reading a file from Quasar
+	// Check if we are reading a file from Magnetar
 	if strings.HasPrefix(playingFile, util.GetHTTPHost()) {
-		playingFile = strings.Replace(playingFile, util.GetHTTPHost() + "/files", config.Get().DownloadPath, 1)
+		playingFile = strings.Replace(playingFile, util.GetHTTPHost()+"/files", config.Get().DownloadPath, 1)
 		playingFile, _ = url.QueryUnescape(playingFile)
 	}
 
@@ -202,7 +203,7 @@ func SubtitleGet(ctx *gin.Context) {
 
 	subtitlesPath := filepath.Join(config.Get().DownloadPath, "Subtitles")
 	if _, err := os.Stat(subtitlesPath); os.IsNotExist(err) {
-		if err := os.Mkdir(subtitlesPath, 0755); err != nil{
+		if err := os.Mkdir(subtitlesPath, 0755); err != nil {
 			subLog.Error("Unable to create Subtitles folder")
 		}
 	}

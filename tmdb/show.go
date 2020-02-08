@@ -1,20 +1,21 @@
 package tmdb
 
 import (
+	"encoding/json"
 	"fmt"
+	"math/rand"
 	"path"
-	"sync"
-	"time"
 	"runtime"
 	"strconv"
 	"strings"
-	"math/rand"
-	"encoding/json"
+	"sync"
+	"time"
+
+	"github.com/charly3pins/magnetar/cache"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/xbmc"
 
 	"github.com/jmcvetta/napping"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/cache"
-	"github.com/charly3pins/quasar/xbmc"
 )
 
 func LogError(err error) {
@@ -31,18 +32,18 @@ func GetShowImages(showId int) *Images {
 	if err := cacheStore.Get(key, &images); err != nil {
 		rateLimiter.Call(func() {
 			urlValues := napping.Params{
-				"api_key": apiKey,
+				"api_key":                apiKey,
 				"include_image_language": fmt.Sprintf("%s,en,null", config.Get().Language),
 			}.AsUrlValues()
 			resp, err := napping.Get(
-				tmdbEndpoint + "tv/" + strconv.Itoa(showId) + "/images",
+				tmdbEndpoint+"tv/"+strconv.Itoa(showId)+"/images",
 				&urlValues,
 				&images,
 				nil,
 			)
 			if err != nil {
 				log.Error(err)
-				xbmc.Notify("Quasar", "Failed getting images, check your logs.", config.AddonIcon())
+				xbmc.Notify("Magnetar", "Failed getting images, check your logs.", config.AddonIcon())
 			} else if resp.Status() == 429 {
 				log.Warningf("Rate limit exceeded getting images for %d, cooling down...", showId)
 				rateLimiter.CoolDown(resp.HttpResponse().Header)
@@ -71,34 +72,34 @@ func GetShow(showId int, language string) (show *Show) {
 	if err := cacheStore.Get(key, &show); err != nil {
 		rateLimiter.Call(func() {
 			urlValues := napping.Params{
-				"api_key": apiKey,
+				"api_key":            apiKey,
 				"append_to_response": "credits,images,alternative_titles,translations,external_ids",
-				"language": language,
+				"language":           language,
 			}.AsUrlValues()
 			resp, err := napping.Get(
-				tmdbEndpoint + "tv/" + strconv.Itoa(showId),
+				tmdbEndpoint+"tv/"+strconv.Itoa(showId),
 				&urlValues,
 				&show,
 				nil,
 			)
 			if err != nil {
 				switch e := err.(type) {
-					case *json.UnmarshalTypeError:
-						log.Errorf("UnmarshalTypeError: Value[%s] Type[%v] Offset[%d] for %d", e.Value, e.Type, e.Offset, showId)
-					case *json.InvalidUnmarshalError:
-						log.Errorf("InvalidUnmarshalError: Type[%v]", e.Type)
-					default:
-						log.Error(err)
+				case *json.UnmarshalTypeError:
+					log.Errorf("UnmarshalTypeError: Value[%s] Type[%v] Offset[%d] for %d", e.Value, e.Type, e.Offset, showId)
+				case *json.InvalidUnmarshalError:
+					log.Errorf("InvalidUnmarshalError: Type[%v]", e.Type)
+				default:
+					log.Error(err)
 				}
 				LogError(err)
-				xbmc.Notify("Quasar", "Failed getting show, check your logs.", config.AddonIcon())
+				xbmc.Notify("Magnetar", "Failed getting show, check your logs.", config.AddonIcon())
 			} else if resp.Status() == 429 {
 				log.Warningf("Rate limit exceeded getting show %d, cooling down...", showId)
 				rateLimiter.CoolDown(resp.HttpResponse().Header)
 			} else if resp.Status() != 200 {
 				message := fmt.Sprintf("Bad status getting show for %d: %d", showId, resp.Status())
 				log.Warning(message)
-				xbmc.Notify("Quasar", message, config.AddonIcon())
+				xbmc.Notify("Magnetar", message, config.AddonIcon())
 			}
 
 			if show != nil {
@@ -141,25 +142,25 @@ func SearchShows(query string, language string, page int) (Shows, int) {
 	rateLimiter.Call(func() {
 		urlValues := napping.Params{
 			"api_key": apiKey,
-			"query": query,
-			"page": strconv.Itoa(page),
+			"query":   query,
+			"page":    strconv.Itoa(page),
 		}.AsUrlValues()
 		resp, err := napping.Get(
-			tmdbEndpoint + "search/tv",
+			tmdbEndpoint+"search/tv",
 			&urlValues,
 			&results,
 			nil,
 		)
 		if err != nil {
 			log.Error(err)
-			xbmc.Notify("Quasar", "Failed searching shows check your logs.", config.AddonIcon())
+			xbmc.Notify("Magnetar", "Failed searching shows check your logs.", config.AddonIcon())
 		} else if resp.Status() == 429 {
 			log.Warningf("Rate limit exceeded searching shows for %s, cooling down...", query)
 			rateLimiter.CoolDown(resp.HttpResponse().Header)
 		} else if resp.Status() != 200 {
 			message := fmt.Sprintf("Bad status searching shows: %d", resp.Status())
 			log.Error(message)
-			xbmc.Notify("Quasar", message, config.AddonIcon())
+			xbmc.Notify("Magnetar", message, config.AddonIcon())
 		}
 	})
 	tmdbIds := make([]int, 0, len(results.Results))
@@ -177,7 +178,7 @@ func listShows(endpoint string, cacheKey string, params napping.Params, page int
 		genre = "all"
 	}
 	limit := ResultsPerPage * PagesAtOnce
-	pageGroup := (page - 1) * ResultsPerPage / limit + 1
+	pageGroup := (page-1)*ResultsPerPage/limit + 1
 
 	shows := make(Shows, limit)
 
@@ -188,7 +189,7 @@ func listShows(endpoint string, cacheKey string, params napping.Params, page int
 		wg := sync.WaitGroup{}
 		for p := 0; p < PagesAtOnce; p++ {
 			wg.Add(1)
-			currentPage := (pageGroup - 1) * ResultsPerPage + p + 1
+			currentPage := (pageGroup-1)*ResultsPerPage + p + 1
 			go func(p int) {
 				defer wg.Done()
 				var results *EntityList
@@ -201,21 +202,21 @@ func listShows(endpoint string, cacheKey string, params napping.Params, page int
 				urlParams := pageParams.AsUrlValues()
 				rateLimiter.Call(func() {
 					resp, err := napping.Get(
-						tmdbEndpoint + endpoint,
+						tmdbEndpoint+endpoint,
 						&urlParams,
 						&results,
 						nil,
 					)
 					if err != nil {
 						log.Error(err)
-						xbmc.Notify("Quasar", "Failed while listing shows, check your logs.", config.AddonIcon())
+						xbmc.Notify("Magnetar", "Failed while listing shows, check your logs.", config.AddonIcon())
 					} else if resp.Status() == 429 {
 						log.Warningf("Rate limit exceeded while listing shows from %s, cooling down...", endpoint)
 						rateLimiter.CoolDown(resp.HttpResponse().Header)
 					} else if resp.Status() != 200 {
 						message := fmt.Sprintf("Bad status while listing shows: %d", resp.Status())
 						log.Error(message)
-						xbmc.Notify("Quasar", message, config.AddonIcon())
+						xbmc.Notify("Magnetar", message, config.AddonIcon())
 					}
 				})
 				if results != nil {
@@ -224,7 +225,7 @@ func listShows(endpoint string, cacheKey string, params napping.Params, page int
 						cacheStore.Set(totalKey, totalResults, recentExpiration)
 					}
 					for s, show := range results.Results {
-						shows[p * ResultsPerPage + s] = GetShow(show.Id, params["language"])
+						shows[p*ResultsPerPage+s] = GetShow(show.Id, params["language"])
 					}
 				}
 			}(p)
@@ -283,13 +284,13 @@ func RecentEpisodes(genre string, language string, page int) (Shows, int) {
 	if genre == "" {
 		p = napping.Params{
 			"language":           language,
-			"air_date.gte": time.Now().UTC().AddDate(0, 0, -3).Format("2006-01-02"),
+			"air_date.gte":       time.Now().UTC().AddDate(0, 0, -3).Format("2006-01-02"),
 			"first_air_date.lte": time.Now().UTC().Format("2006-01-02"),
 		}
 	} else {
 		p = napping.Params{
 			"language":           language,
-			"air_date.gte": time.Now().UTC().AddDate(0, 0, -3).Format("2006-01-02"),
+			"air_date.gte":       time.Now().UTC().AddDate(0, 0, -3).Format("2006-01-02"),
 			"first_air_date.lte": time.Now().UTC().Format("2006-01-02"),
 			"with_genres":        genre,
 		}
@@ -318,25 +319,25 @@ func GetTVGenres(language string) []*Genre {
 	if err := cacheStore.Get(key, &genres); err != nil {
 		rateLimiter.Call(func() {
 			urlValues := napping.Params{
-				"api_key": apiKey,
+				"api_key":  apiKey,
 				"language": language,
 			}.AsUrlValues()
 			resp, err := napping.Get(
-				tmdbEndpoint + "genre/tv/list",
+				tmdbEndpoint+"genre/tv/list",
 				&urlValues,
 				&genres,
 				nil,
 			)
 			if err != nil {
 				log.Error(err)
-				xbmc.Notify("Quasar", "Failed getting TV genres, check your logs.", config.AddonIcon())
+				xbmc.Notify("Magnetar", "Failed getting TV genres, check your logs.", config.AddonIcon())
 			} else if resp.Status() == 429 {
 				log.Warning("Rate limit exceeded getting TV genres, cooling down...")
 				rateLimiter.CoolDown(resp.HttpResponse().Header)
 			} else if resp.Status() != 200 {
 				message := fmt.Sprintf("Bad status getting TV genres: %d", resp.Status())
 				log.Error(message)
-				xbmc.Notify("Quasar", message, config.AddonIcon())
+				xbmc.Notify("Magnetar", message, config.AddonIcon())
 			}
 		})
 		if genres.Genres != nil && len(genres.Genres) > 0 {

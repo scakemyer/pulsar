@@ -1,16 +1,18 @@
 package api
 
 import (
+	"encoding/hex"
 	"fmt"
 	"net/url"
 	"strconv"
-	"encoding/hex"
+
+	"github.com/charly3pins/magnetar/bittorrent"
+	"github.com/charly3pins/magnetar/util"
+	"github.com/charly3pins/magnetar/xbmc"
+
+	"github.com/charly3pins/libtorrent-go"
 
 	"github.com/gin-gonic/gin"
-	"github.com/charly3pins/quasar/bittorrent"
-	"github.com/scakemyer/libtorrent-go"
-	"github.com/charly3pins/quasar/util"
-	"github.com/charly3pins/quasar/xbmc"
 )
 
 func Play(btService *bittorrent.BTService) gin.HandlerFunc {
@@ -77,15 +79,15 @@ func Play(btService *bittorrent.BTService) gin.HandlerFunc {
 		}
 
 		params := bittorrent.BTPlayerParams{
-			URI: uri,
+			URI:         uri,
 			FromLibrary: fromLibrary,
-			FileIndex: fileIndex,
+			FileIndex:   fileIndex,
 			ResumeIndex: resumeIndex,
 			ContentType: contentType,
-			TMDBId: tmdbId,
-			ShowID: showId,
-			Season: seasonNumber,
-			Episode: episodeNumber,
+			TMDBId:      tmdbId,
+			ShowID:      showId,
+			Season:      seasonNumber,
+			Episode:     episodeNumber,
 		}
 
 		player := bittorrent.NewBTPlayer(btService, params)
@@ -121,10 +123,10 @@ func PlayURI(btService *bittorrent.BTService) gin.HandlerFunc {
 			xbmc.PlayURL(UrlQuery(UrlForXBMC("/play"), "uri", uri, "index", index))
 		} else {
 			var (
-				tmdb string
-				show string
-				season string
-				episode string
+				tmdb        string
+				show        string
+				season      string
+				episode     string
 				contentType string
 			)
 			torrentsVector := btService.Session.GetHandle().GetTorrents()

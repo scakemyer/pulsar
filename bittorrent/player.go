@@ -17,14 +17,16 @@ import (
 	"sync"
 	"time"
 
+	"github.com/charly3pins/magnetar/broadcast"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/diskusage"
+	"github.com/charly3pins/magnetar/trakt"
+	"github.com/charly3pins/magnetar/xbmc"
+
+	libtorrent "github.com/charly3pins/libtorrent-go"
+
 	humanize "github.com/dustin/go-humanize"
 	logging "github.com/op/go-logging"
-	libtorrent "github.com/scakemyer/libtorrent-go"
-	"github.com/charly3pins/quasar/broadcast"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/diskusage"
-	"github.com/charly3pins/quasar/trakt"
-	"github.com/charly3pins/quasar/xbmc"
 	"github.com/zeebo/bencode"
 )
 
@@ -149,7 +151,7 @@ func (btp *BTPlayer) addTorrent() error {
 	btp.log.Infof("Adding torrent from %s", btp.uri)
 
 	if btp.bts.config.DownloadPath == "." {
-		xbmc.Notify("Quasar", "LOCALIZE[30113]", config.AddonIcon())
+		xbmc.Notify("Magnetar", "LOCALIZE[30113]", config.AddonIcon())
 		return fmt.Errorf("Download path empty")
 	}
 
@@ -309,7 +311,7 @@ func (btp *BTPlayer) Buffer() error {
 	buffered, done := btp.bufferEvents.Listen()
 	defer close(done)
 
-	btp.dialogProgress = xbmc.NewDialogProgress("Quasar", "", "", "")
+	btp.dialogProgress = xbmc.NewDialogProgress("Magnetar", "", "", "")
 	defer btp.dialogProgress.Close()
 
 	btp.overlayStatus = xbmc.NewOverlayStatus()
@@ -371,7 +373,7 @@ func (btp *BTPlayer) CheckAvailableSpace() bool {
 
 		if availableSpace < sizeLeft {
 			btp.log.Errorf("Unsufficient free space on %s. Has %d, needs %d.", btp.bts.config.DownloadPath, btp.diskStatus.Free, sizeLeft)
-			xbmc.Notify("Quasar", "LOCALIZE[30207]", config.AddonIcon())
+			xbmc.Notify("Magnetar", "LOCALIZE[30207]", config.AddonIcon())
 			btp.bufferEvents.Broadcast(errors.New("Not enough space on download destination."))
 			btp.notEnoughSpace = true
 			return false
@@ -561,7 +563,7 @@ func (btp *BTPlayer) chooseFile() (int, error) {
 		re := regexp.MustCompile("(?i).*\\.rar")
 		if re.MatchString(fileName) && size > 10*1024*1024 {
 			btp.isRarArchive = true
-			if !xbmc.DialogConfirm("Quasar", "LOCALIZE[30303]") {
+			if !xbmc.DialogConfirm("Magnetar", "LOCALIZE[30303]") {
 				btp.notEnoughSpace = true
 				return i, errors.New("RAR archive detected and download was cancelled")
 			}
@@ -661,14 +663,14 @@ func (btp *BTPlayer) Close() {
 
 	askedToKeepDownloading := true
 	if btp.askToKeepDownloading == true {
-		if !xbmc.DialogConfirm("Quasar", "LOCALIZE[30146]") {
+		if !xbmc.DialogConfirm("Magnetar", "LOCALIZE[30146]") {
 			askedToKeepDownloading = false
 		}
 	}
 
 	askedToDelete := false
 	if btp.askToDelete == true && (btp.askToKeepDownloading == false || askedToKeepDownloading == false) {
-		if xbmc.DialogConfirm("Quasar", "LOCALIZE[30269]") {
+		if xbmc.DialogConfirm("Magnetar", "LOCALIZE[30269]") {
 			askedToDelete = true
 		}
 	}
@@ -809,7 +811,7 @@ func (btp *BTPlayer) bufferDialog() {
 					if err != nil {
 						btp.log.Error(err)
 						btp.bufferEvents.Broadcast(err)
-						xbmc.Notify("Quasar", "LOCALIZE[30304]", config.AddonIcon())
+						xbmc.Notify("Magnetar", "LOCALIZE[30304]", config.AddonIcon())
 						return
 					}
 
@@ -824,7 +826,7 @@ func (btp *BTPlayer) bufferDialog() {
 					if err != nil {
 						btp.log.Error(err)
 						btp.bufferEvents.Broadcast(err)
-						xbmc.Notify("Quasar", "LOCALIZE[30305]", config.AddonIcon())
+						xbmc.Notify("Magnetar", "LOCALIZE[30305]", config.AddonIcon())
 						return
 					}
 
@@ -832,7 +834,7 @@ func (btp *BTPlayer) bufferDialog() {
 					if err != nil {
 						btp.log.Error(err)
 						btp.bufferEvents.Broadcast(err)
-						xbmc.Notify("Quasar", "LOCALIZE[30306]", config.AddonIcon())
+						xbmc.Notify("Magnetar", "LOCALIZE[30306]", config.AddonIcon())
 						return
 					}
 
@@ -870,7 +872,7 @@ func (btp *BTPlayer) findExtracted(destPath string) {
 	if err != nil {
 		btp.log.Error(err)
 		btp.bufferEvents.Broadcast(err)
-		xbmc.Notify("Quasar", "LOCALIZE[30307]", config.AddonIcon())
+		xbmc.Notify("Magnetar", "LOCALIZE[30307]", config.AddonIcon())
 		return
 	}
 	if len(files) == 1 {

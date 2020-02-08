@@ -1,53 +1,56 @@
 package api
 
 import (
-	"os"
-	"fmt"
-	"time"
-	"errors"
-	"strings"
-	"strconv"
-	"unicode"
-	"io/ioutil"
 	"encoding/hex"
+	"errors"
+	"fmt"
+	"io/ioutil"
+	"os"
 	"path/filepath"
+	"strconv"
+	"strings"
+	"time"
+	"unicode"
 
-	"github.com/op/go-logging"
-	"github.com/gin-gonic/gin"
-	"github.com/dustin/go-humanize"
+	"github.com/charly3pins/magnetar/bittorrent"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/util"
+	"github.com/charly3pins/magnetar/xbmc"
+
+	"github.com/charly3pins/libtorrent-go"
+
 	"github.com/cloudflare/ahocorasick"
-	"github.com/scakemyer/libtorrent-go"
-	"github.com/charly3pins/quasar/bittorrent"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/util"
-	"github.com/charly3pins/quasar/xbmc"
+	"github.com/dustin/go-humanize"
+	"github.com/gin-gonic/gin"
+	"github.com/op/go-logging"
 	"github.com/zeebo/bencode"
 )
 
 var torrentsLog = logging.MustGetLogger("torrents")
 
 type TorrentsWeb struct {
-	Name         string  `json:"name"`
-	Size         string  `json:"size"`
-	Status       string  `json:"status"`
-	Progress     float64 `json:"progress"`
-	Ratio        float64 `json:"ratio"`
-	TimeRatio    float64 `json:"time_ratio"`
-	SeedingTime  string  `json:"seeding_time"`
-	SeedTime     float64 `json:"seed_time"`
-	SeedTimeLimit    int `json:"seed_time_limit"`
-	DownloadRate float64 `json:"download_rate"`
-	UploadRate   float64 `json:"upload_rate"`
-	Seeders      int     `json:"seeders"`
-	SeedersTotal int     `json:"seeders_total"`
-	Peers        int     `json:"peers"`
-	PeersTotal   int     `json:"peers_total"`
+	Name          string  `json:"name"`
+	Size          string  `json:"size"`
+	Status        string  `json:"status"`
+	Progress      float64 `json:"progress"`
+	Ratio         float64 `json:"ratio"`
+	TimeRatio     float64 `json:"time_ratio"`
+	SeedingTime   string  `json:"seeding_time"`
+	SeedTime      float64 `json:"seed_time"`
+	SeedTimeLimit int     `json:"seed_time_limit"`
+	DownloadRate  float64 `json:"download_rate"`
+	UploadRate    float64 `json:"upload_rate"`
+	Seeders       int     `json:"seeders"`
+	SeedersTotal  int     `json:"seeders_total"`
+	Peers         int     `json:"peers"`
+	PeersTotal    int     `json:"peers_total"`
 }
 
 type TorrentMap struct {
 	tmdbId  string
 	torrent *bittorrent.Torrent
 }
+
 var TorrentsMap []*TorrentMap
 
 func AddToTorrentsMap(tmdbId string, torrent *bittorrent.Torrent) {
@@ -59,7 +62,7 @@ func AddToTorrentsMap(tmdbId string, torrent *bittorrent.Torrent) {
 	}
 	if inTorrentsMap == false {
 		torrentMap := &TorrentMap{
-			tmdbId: tmdbId,
+			tmdbId:  tmdbId,
 			torrent: torrent,
 		}
 		TorrentsMap = append(TorrentsMap, torrentMap)
@@ -69,10 +72,10 @@ func AddToTorrentsMap(tmdbId string, torrent *bittorrent.Torrent) {
 func InTorrentsMap(tmdbId string) (torrents []*bittorrent.Torrent) {
 	for index, torrentMap := range TorrentsMap {
 		if tmdbId == torrentMap.tmdbId {
-			if xbmc.DialogConfirm("Quasar", "LOCALIZE[30260]") {
+			if xbmc.DialogConfirm("Magnetar", "LOCALIZE[30260]") {
 				torrents = append(torrents, torrentMap.torrent)
 			} else {
-				TorrentsMap = append(TorrentsMap[:index], TorrentsMap[index + 1:]...)
+				TorrentsMap = append(TorrentsMap[:index], TorrentsMap[index+1:]...)
 			}
 		}
 	}
@@ -174,7 +177,7 @@ func ListTorrents(btService *bittorrent.BTService) gin.HandlerFunc {
 			}
 
 			color := "white"
-			switch (status) {
+			switch status {
 			case "Paused":
 				fallthrough
 			case "Finished":
@@ -196,10 +199,10 @@ func ListTorrents(btService *bittorrent.BTService) gin.HandlerFunc {
 			torrentsLog.Infof("- %.2f%% - %s - %.2f:1 / %.2f:1 (%s) - %s", progress, status, ratio, timeRatio, seedingTime.String(), torrentName)
 
 			var (
-				tmdb string
-				show string
-				season string
-				episode string
+				tmdb        string
+				show        string
+				season      string
+				episode     string
 				contentType string
 			)
 			shaHash := torrentStatus.GetInfoHash().ToString()
@@ -226,7 +229,7 @@ func ListTorrents(btService *bittorrent.BTService) gin.HandlerFunc {
 
 			item := xbmc.ListItem{
 				Label: fmt.Sprintf("%.2f%% - [COLOR %s]%s[/COLOR] - %.2f:1 / %.2f:1 (%s) - %s", progress, color, status, ratio, timeRatio, seedingTime.String(), torrentName),
-				Path: playUrl,
+				Path:  playUrl,
 				Info: &xbmc.ListItemInfo{
 					Title: torrentName,
 				},
@@ -309,21 +312,21 @@ func ListTorrentsWeb(btService *bittorrent.BTService) gin.HandlerFunc {
 			peersTotal := torrentStatus.GetNumIncomplete()
 
 			torrent := TorrentsWeb{
-				Name: torrentName,
-				Size: size,
-				Status: status,
-				Progress: progress,
-				Ratio: ratio,
-				TimeRatio: timeRatio,
-				SeedingTime: seedingTime.String(),
-				SeedTime: seedingTime.Seconds(),
+				Name:          torrentName,
+				Size:          size,
+				Status:        status,
+				Progress:      progress,
+				Ratio:         ratio,
+				TimeRatio:     timeRatio,
+				SeedingTime:   seedingTime.String(),
+				SeedTime:      seedingTime.Seconds(),
 				SeedTimeLimit: seedTimeLimit,
-				DownloadRate: downloadRate,
-				UploadRate: uploadRate,
-				Seeders: seeders,
-				SeedersTotal: seedersTotal,
-				Peers: peers,
-				PeersTotal: peersTotal,
+				DownloadRate:  downloadRate,
+				UploadRate:    uploadRate,
+				Seeders:       seeders,
+				SeedersTotal:  seedersTotal,
+				Peers:         peers,
+				PeersTotal:    peersTotal,
 			}
 			torrents = append(torrents, &torrent)
 		}
@@ -362,7 +365,7 @@ func AddTorrent(btService *bittorrent.BTService) gin.HandlerFunc {
 		torrentsLog.Infof("Adding torrent from %s", uri)
 
 		if config.Get().DownloadPath == "." {
-			xbmc.Notify("Quasar", "LOCALIZE[30113]", config.AddonIcon())
+			xbmc.Notify("Magnetar", "LOCALIZE[30113]", config.AddonIcon())
 			ctx.String(404, "Download path empty")
 			return
 		}
@@ -563,7 +566,7 @@ func RemoveTorrent(btService *bittorrent.BTService) gin.HandlerFunc {
 
 		askedToDelete := false
 		if config.Get().KeepFilesAsk == true && deleteFiles == "" {
-			if xbmc.DialogConfirm("Quasar", "LOCALIZE[30269]") {
+			if xbmc.DialogConfirm("Magnetar", "LOCALIZE[30269]") {
 				askedToDelete = true
 			}
 		}
@@ -592,7 +595,7 @@ func Versions(btService *bittorrent.BTService) gin.HandlerFunc {
 			UserAgent  string `json:"user-agent"`
 		}
 		versions := Versions{
-			Version:    util.Version[1:len(util.Version) - 1],
+			Version:    util.Version[1 : len(util.Version)-1],
 			Libtorrent: libtorrent.Version(),
 			UserAgent:  btService.UserAgent,
 		}

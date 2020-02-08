@@ -1,26 +1,27 @@
 package cloudhole
 
 import (
-	"fmt"
 	"errors"
-	"net/http"
+	"fmt"
 	"math/rand"
+	"net/http"
+
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/xbmc"
 
 	"github.com/jmcvetta/napping"
-	"github.com/charly3pins/quasar/xbmc"
-	"github.com/charly3pins/quasar/config"
 )
 
 var (
 	apiKey           = ""
-	clearances         []*Clearance
+	clearances       []*Clearance
 	defaultClearance = &Clearance{
 		UserAgent: "Mozilla/5.0 (X11; NetBSD amd64; rv:42.0) Gecko/20100101 Firefox/42.0",
 	}
 )
 
 type ApiKey struct {
-	Key       string `json:"key"`
+	Key string `json:"key"`
 }
 
 type Clearance struct {
@@ -33,7 +34,7 @@ type Clearance struct {
 }
 
 func ResetClearances() {
-	apiKey     = ""
+	apiKey = ""
 	clearances = []*Clearance{}
 	xbmc.SetSetting("cloudhole_key", "")
 }
@@ -54,7 +55,7 @@ func GetClearance() (clearance *Clearance, err error) {
 		params := napping.Params{}.AsUrlValues()
 
 		req := napping.Request{
-			Url: fmt.Sprintf("%s/%s", "https://cloudhole.herokuapp.com", "key"),
+			Url:    fmt.Sprintf("%s/%s", "https://cloudhole.herokuapp.com", "key"),
 			Method: "GET",
 			Params: &params,
 			Header: &header,
@@ -63,7 +64,7 @@ func GetClearance() (clearance *Clearance, err error) {
 		resp, err := napping.Send(&req)
 
 		if err == nil && resp.Status() == 200 {
-			newKey := &ApiKey{ Key: "" }
+			newKey := &ApiKey{Key: ""}
 			resp.Unmarshal(&newKey)
 			apiKey = newKey.Key
 			xbmc.SetSetting("cloudhole_key", apiKey)
@@ -76,13 +77,13 @@ func GetClearance() (clearance *Clearance, err error) {
 	}
 
 	header := http.Header{
-		"Content-type": []string{"application/json"},
+		"Content-type":  []string{"application/json"},
 		"Authorization": []string{apiKey},
 	}
 	params := napping.Params{}.AsUrlValues()
 
 	req := napping.Request{
-		Url: fmt.Sprintf("%s/%s", "https://cloudhole.herokuapp.com", "clearances"),
+		Url:    fmt.Sprintf("%s/%s", "https://cloudhole.herokuapp.com", "clearances"),
 		Method: "GET",
 		Params: &params,
 		Header: &header,
@@ -114,7 +115,7 @@ func GetSurgeClearances() {
 	params := napping.Params{}.AsUrlValues()
 
 	req := napping.Request{
-		Url: fmt.Sprintf("%s/%s", "https://cloudhole.surge.sh", "cloudhole.json"),
+		Url:    fmt.Sprintf("%s/%s", "https://cloudhole.surge.sh", "cloudhole.json"),
 		Method: "GET",
 		Params: &params,
 		Header: &header,

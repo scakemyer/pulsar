@@ -1,17 +1,18 @@
 package config
 
 import (
-	"os"
+	"errors"
 	"fmt"
+	"os"
+	"path/filepath"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
-	"errors"
-	"strings"
-	"strconv"
-	"path/filepath"
+
+	"github.com/charly3pins/magnetar/xbmc"
 
 	"github.com/op/go-logging"
-	"github.com/charly3pins/quasar/xbmc"
 )
 
 var log = logging.MustGetLogger("config")
@@ -70,11 +71,11 @@ type Configuration struct {
 	OSDBUser            string
 	OSDBPass            string
 
-	SortingModeMovies            int
-	SortingModeShows             int
-	ResolutionPreferenceMovies   int
-	ResolutionPreferenceShows    int
-	PercentageAdditionalSeeders  int
+	SortingModeMovies           int
+	SortingModeShows            int
+	ResolutionPreferenceMovies  int
+	ResolutionPreferenceShows   int
+	PercentageAdditionalSeeders int
 
 	CustomProviderTimeoutEnabled bool
 	CustomProviderTimeout        int
@@ -118,7 +119,7 @@ func Reload() *Configuration {
 	info := xbmc.GetAddonInfo()
 	info.Path = xbmc.TranslatePath(info.Path)
 	info.Profile = xbmc.TranslatePath(info.Profile)
-	info.TempPath = filepath.Join(xbmc.TranslatePath("special://temp"), "quasar")
+	info.TempPath = filepath.Join(xbmc.TranslatePath("special://temp"), "magnetar")
 	platform := xbmc.GetPlatform()
 
 	os.RemoveAll(info.TempPath)
@@ -135,13 +136,13 @@ func Reload() *Configuration {
 
 	downloadPath := filepath.Dir(xbmc.TranslatePath(xbmc.GetSettingString("download_path")))
 	if downloadPath == "." {
-		xbmc.Dialog("Quasar", "LOCALIZE[30113]")
-		xbmc.AddonSettings("plugin.video.quasar")
+		xbmc.Dialog("Magnetar", "LOCALIZE[30113]")
+		xbmc.AddonSettings("plugin.video.magnetar")
 		go waitSettingsSet()
 	} else if err := IsWritablePath(downloadPath); err != nil {
 		log.Error(err)
-		xbmc.Dialog("Quasar", err.Error())
-		xbmc.AddonSettings("plugin.video.quasar")
+		xbmc.Dialog("Magnetar", err.Error())
+		xbmc.AddonSettings("plugin.video.magnetar")
 	} else {
 		settingsSet = true
 	}
@@ -152,8 +153,8 @@ func Reload() *Configuration {
 		libraryPath = downloadPath
 	} else if err := IsWritablePath(libraryPath); err != nil {
 		log.Error(err)
-		xbmc.Dialog("Quasar", err.Error())
-		xbmc.AddonSettings("plugin.video.quasar")
+		xbmc.Dialog("Magnetar", err.Error())
+		xbmc.AddonSettings("plugin.video.magnetar")
 	}
 	log.Infof("Using library path: %s", libraryPath)
 
@@ -245,11 +246,11 @@ func Reload() *Configuration {
 		OSDBUser:            settings["osdb_user"].(string),
 		OSDBPass:            settings["osdb_pass"].(string),
 
-		SortingModeMovies:            settings["sorting_mode_movies"].(int),
-		SortingModeShows:             settings["sorting_mode_shows"].(int),
-		ResolutionPreferenceMovies:   settings["resolution_preference_movies"].(int),
-		ResolutionPreferenceShows:    settings["resolution_preference_shows"].(int),
-		PercentageAdditionalSeeders:  settings["percentage_additional_seeders"].(int),
+		SortingModeMovies:           settings["sorting_mode_movies"].(int),
+		SortingModeShows:            settings["sorting_mode_shows"].(int),
+		ResolutionPreferenceMovies:  settings["resolution_preference_movies"].(int),
+		ResolutionPreferenceShows:   settings["resolution_preference_shows"].(int),
+		PercentageAdditionalSeeders: settings["percentage_additional_seeders"].(int),
 
 		CustomProviderTimeoutEnabled: settings["custom_provider_timeout_enabled"].(bool),
 		CustomProviderTimeout:        settings["custom_provider_timeout"].(int),
@@ -292,7 +293,7 @@ func IsWritablePath(path string) error {
 		if err != nil {
 			return err
 		}
-	    return errors.New(fmt.Sprintf("%s is not a valid directory", path))
+		return errors.New(fmt.Sprintf("%s is not a valid directory", path))
 	}
 	writableFile := filepath.Join(path, ".writable")
 	if writable, err := os.Create(writableFile); err != nil {
@@ -320,17 +321,17 @@ func waitSettingsSet() {
 }
 
 func CheckBurst() {
-	// Check for enabled providers and Quasar Burst
+	// Check for enabled providers and Magnetar Burst
 	hasBurst := false
 	enabledProviders := make([]Addon, 0)
 	for _, addon := range xbmc.GetAddons("xbmc.python.script", "executable", "all", []string{"name", "version", "enabled"}).Addons {
-		if strings.HasPrefix(addon.ID, "script.quasar.") {
-			if addon.ID == "script.quasar.burst" && addon.Enabled == true {
+		if strings.HasPrefix(addon.ID, "script.magnetar.") {
+			if addon.ID == "script.magnetar.burst" && addon.Enabled == true {
 				hasBurst = true
 			}
 			enabledProviders = append(enabledProviders, Addon{
-				ID: addon.ID,
-				Name: addon.Name,
+				ID:      addon.ID,
+				Name:    addon.Name,
 				Version: addon.Version,
 				Enabled: addon.Enabled,
 			})
@@ -342,10 +343,10 @@ func CheckBurst() {
 		xbmc.UpdateAddonRepos()
 		time.Sleep(10 * time.Second)
 
-		if xbmc.DialogConfirm("Quasar", "LOCALIZE[30271]") {
-			xbmc.PlayURL("plugin://script.quasar.burst/")
+		if xbmc.DialogConfirm("Magnetar", "LOCALIZE[30271]") {
+			xbmc.PlayURL("plugin://script.magnetar.burst/")
 			for _, addon := range xbmc.GetAddons("xbmc.python.script", "executable", "all", []string{"name", "version", "enabled"}).Addons {
-				if addon.ID == "script.quasar.burst" && addon.Enabled == true {
+				if addon.ID == "script.magnetar.burst" && addon.Enabled == true {
 					hasBurst = true
 				}
 			}
@@ -353,9 +354,9 @@ func CheckBurst() {
 				for _, addon := range enabledProviders {
 					xbmc.SetAddonEnabled(addon.ID, false)
 				}
-				xbmc.Notify("Quasar", "LOCALIZE[30272]", AddonIcon())
+				xbmc.Notify("Magnetar", "LOCALIZE[30272]", AddonIcon())
 			} else {
-				xbmc.Dialog("Quasar", "LOCALIZE[30273]")
+				xbmc.Dialog("Magnetar", "LOCALIZE[30273]")
 			}
 		}
 	}

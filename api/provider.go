@@ -1,16 +1,17 @@
 package api
 
 import (
-	"fmt"
-	"errors"
-	"strconv"
 	"encoding/json"
+	"errors"
+	"fmt"
+	"strconv"
 
-	"github.com/op/go-logging"
+	"github.com/charly3pins/magnetar/providers"
+	"github.com/charly3pins/magnetar/tmdb"
+	"github.com/charly3pins/magnetar/xbmc"
+
 	"github.com/gin-gonic/gin"
-	"github.com/charly3pins/quasar/providers"
-	"github.com/charly3pins/quasar/tmdb"
-	"github.com/charly3pins/quasar/xbmc"
+	"github.com/op/go-logging"
 )
 
 var providerLog = logging.MustGetLogger("provider")
@@ -59,7 +60,7 @@ func ProviderGetEpisode(ctx *gin.Context) {
 		ctx.Error(errors.New(fmt.Sprintf("Unable to get season %d", seasonNumber)))
 		return
 	}
-	episode := season.Episodes[episodeNumber - 1]
+	episode := season.Episodes[episodeNumber-1]
 
 	providerLog.Infof("Resolved %d to %s", showId, show.Name)
 

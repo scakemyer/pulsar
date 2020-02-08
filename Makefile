@@ -56,9 +56,9 @@ else ifeq ($(TARGET_OS), android)
 	GO_LDFLAGS = -linkmode=external -extldflags=-pie -extld=$(CC)
 endif
 
-PROJECT = quasarhq
-NAME = quasar
-GO_PKG = github.com/charly3pins/quasar
+PROJECT = magnetarhq
+NAME = magnetar
+GO_PKG = github.com/charly3pins/magnetar
 GO = go
 GIT = git
 DOCKER = docker
@@ -131,7 +131,7 @@ vendor_libs_windows:
 vendor_libs_android:
 	$(CROSS_ROOT)/arm-linux-androideabi/lib/libgnustl_shared.so
 
-quasar: $(BUILD_PATH)/$(OUTPUT_NAME)
+magnetar: $(BUILD_PATH)/$(OUTPUT_NAME)
 
 re: clean build
 
@@ -160,15 +160,15 @@ checksum: $(BUILD_PATH)/$(OUTPUT_NAME)
 	shasum -b $(BUILD_PATH)/$(OUTPUT_NAME) | cut -d' ' -f1 >> $(BUILD_PATH)/$(OUTPUT_NAME)
 
 ifeq ($(TARGET_ARCH), arm)
-dist: quasar vendor_$(TARGET_OS) strip checksum
+dist: magnetar vendor_$(TARGET_OS) strip checksum
 else ifeq ($(TARGET_ARCH), armv7)
-dist: quasar vendor_$(TARGET_OS) strip checksum
+dist: magnetar vendor_$(TARGET_OS) strip checksum
 else ifeq ($(TARGET_ARCH), arm64)
-dist: quasar vendor_$(TARGET_OS) strip checksum
+dist: magnetar vendor_$(TARGET_OS) strip checksum
 else ifeq ($(TARGET_OS), darwin)
-dist: quasar vendor_$(TARGET_OS) strip checksum
+dist: magnetar vendor_$(TARGET_OS) strip checksum
 else
-dist: quasar vendor_$(TARGET_OS) strip checksum
+dist: magnetar vendor_$(TARGET_OS) strip checksum
 endif
 
 libs: force
@@ -176,7 +176,7 @@ libs: force
 
 binaries:
 	git config --global push.default simple
-	git clone --depth=1 https://github.com/charly3pins/quasar-binaries binaries
+	git clone --depth=1 https://github.com/charly3pins/magnetar-binaries binaries
 	cp -Rf build/* binaries/
 	cd binaries && git add * && git commit -m "Update to ${GIT_VERSION}"
 

@@ -1,10 +1,10 @@
 package xbmc
 
 import (
-	"net"
 	"errors"
+	"net"
 
-	"github.com/charly3pins/quasar/jsonrpc"
+	"github.com/charly3pins/magnetar/jsonrpc"
 )
 
 type Args []interface{}
@@ -40,7 +40,7 @@ func executeJSONRPC(method string, retVal interface{}, args Args) error {
 	}
 	conn, err := getConnection(XBMCJSONRPCHosts...)
 	if err != nil {
-		log.Error(err)
+		log.Error(err.Error())
 		log.Critical("No available JSON-RPC connection to Kodi")
 		return err
 	}
@@ -58,7 +58,7 @@ func executeJSONRPCO(method string, retVal interface{}, args Object) error {
 	}
 	conn, err := getConnection(XBMCJSONRPCHosts...)
 	if err != nil {
-		log.Error(err)
+		log.Error(err.Error())
 		log.Critical("No available JSON-RPC connection to Kodi")
 		return err
 	}
@@ -76,7 +76,7 @@ func executeJSONRPCEx(method string, retVal interface{}, args Args) error {
 	}
 	conn, err := getConnection(XBMCExJSONRPCHosts...)
 	if err != nil {
-		log.Error(err)
+		log.Error(err.Error())
 		log.Critical("No available JSON-RPC connection to the add-on")
 		return err
 	}

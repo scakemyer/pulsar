@@ -1,20 +1,21 @@
 package trakt
 
 import (
-	"fmt"
-	"path"
-	"time"
 	"errors"
+	"fmt"
+	"math/rand"
+	"path"
 	"strconv"
 	"strings"
-	"math/rand"
+	"time"
 
-	"github.com/op/go-logging"
+	"github.com/charly3pins/magnetar/cache"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/tmdb"
+	"github.com/charly3pins/magnetar/xbmc"
+
 	"github.com/jmcvetta/napping"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/cache"
-	"github.com/charly3pins/quasar/tmdb"
-	"github.com/charly3pins/quasar/xbmc"
+	"github.com/op/go-logging"
 )
 
 var movieLog = logging.MustGetLogger("movie")
@@ -97,7 +98,7 @@ func GetMovie(Id string) (movie *Movie) {
 
 		if err != nil {
 			log.Error(err)
-			xbmc.Notify("Quasar", fmt.Sprintf("Failed getting Trakt movie (%s), check your logs.", Id), config.AddonIcon())
+			xbmc.Notify("Magnetar", fmt.Sprintf("Failed getting Trakt movie (%s), check your logs.", Id), config.AddonIcon())
 		}
 
 		if err := resp.Unmarshal(&movie); err != nil {
@@ -116,9 +117,9 @@ func SearchMovies(query string, page string) (movies []*Movies, err error) {
 	endPoint := "search"
 
 	params := napping.Params{
-		"page": page,
-		"limit": strconv.Itoa(config.Get().ResultsPerPage),
-		"query": query,
+		"page":     page,
+		"limit":    strconv.Itoa(config.Get().ResultsPerPage),
+		"query":    query,
 		"extended": "full,images",
 	}.AsUrlValues()
 
@@ -130,9 +131,9 @@ func SearchMovies(query string, page string) (movies []*Movies, err error) {
 		return movies, errors.New(fmt.Sprintf("Bad status searching Trakt movies: %d", resp.Status()))
 	}
 
-  // TODO use response headers for pagination limits:
-  // X-Pagination-Page-Count:10
-  // X-Pagination-Item-Count:100
+	// TODO use response headers for pagination limits:
+	// X-Pagination-Page-Count:10
+	// X-Pagination-Item-Count:100
 
 	if err := resp.Unmarshal(&movies); err != nil {
 		log.Warning(err)
@@ -154,10 +155,10 @@ func TopMovies(topCategory string, page string) (movies []*Movies, total int, er
 	if err != nil {
 		return
 	}
-	page = strconv.Itoa((pageInt - 1) * resultsPerPage / limit + 1)
+	page = strconv.Itoa((pageInt-1)*resultsPerPage/limit + 1)
 	params := napping.Params{
-		"page": page,
-		"limit": strconv.Itoa(limit),
+		"page":     page,
+		"limit":    strconv.Itoa(limit),
 		"extended": "full,images",
 	}.AsUrlValues()
 
@@ -179,13 +180,13 @@ func TopMovies(topCategory string, page string) (movies []*Movies, total int, er
 				log.Warning(err)
 			}
 
-		  movieListing := make([]*Movies, 0)
-		  for _, movie := range movieList {
+			movieListing := make([]*Movies, 0)
+			for _, movie := range movieList {
 				movieItem := Movies{
-		      Movie: movie,
-		    }
-		    movieListing = append(movieListing, &movieItem)
-		  }
+					Movie: movie,
+				}
+				movieListing = append(movieListing, &movieItem)
+			}
 			movies = movieListing
 		} else {
 			if err := resp.Unmarshal(&movies); err != nil {
@@ -337,7 +338,7 @@ func CollectionMovies() (movies []*Movies, err error) {
 func Userlists() (lists []*List) {
 	traktUsername := config.Get().TraktUsername
 	if traktUsername == "" {
-		xbmc.Notify("Quasar", "LOCALIZE[30149]", config.AddonIcon())
+		xbmc.Notify("Magnetar", "LOCALIZE[30149]", config.AddonIcon())
 		return lists
 	}
 	endPoint := fmt.Sprintf("users/%s/lists", traktUsername)
@@ -354,13 +355,13 @@ func Userlists() (lists []*List) {
 	}
 
 	if err != nil {
-		xbmc.Notify("Quasar", err.Error(), config.AddonIcon())
+		xbmc.Notify("Magnetar", err.Error(), config.AddonIcon())
 		log.Error(err)
 		return lists
 	}
 	if resp.Status() != 200 {
 		errMsg := fmt.Sprintf("Bad status getting custom lists for %s: %d", traktUsername, resp.Status())
-		xbmc.Notify("Quasar", errMsg, config.AddonIcon())
+		xbmc.Notify("Magnetar", errMsg, config.AddonIcon())
 		log.Warningf(errMsg)
 		return lists
 	}
@@ -417,7 +418,7 @@ func ListItemsMovies(listId string, withImages bool) (movies []*Movies, err erro
 			movies = setFanarts(movies)
 		}
 
-		cacheStore.Set(key, movies, 1 * time.Minute)
+		cacheStore.Set(key, movies, 1*time.Minute)
 	}
 
 	return movies, err
@@ -430,10 +431,10 @@ func CalendarMovies(endPoint string, page string) (movies []*CalendarMovie, tota
 	if err != nil {
 		return
 	}
-	page = strconv.Itoa((pageInt - 1) * resultsPerPage / limit + 1)
+	page = strconv.Itoa((pageInt-1)*resultsPerPage/limit + 1)
 	params := napping.Params{
-		"page": page,
-		"limit": strconv.Itoa(limit),
+		"page":     page,
+		"limit":    strconv.Itoa(limit),
 		"extended": "full,images",
 	}.AsUrlValues()
 
@@ -442,7 +443,7 @@ func CalendarMovies(endPoint string, page string) (movies []*CalendarMovie, tota
 	key := fmt.Sprintf("com.trakt.mymovies.%s.%s", endPointKey, page)
 	totalKey := fmt.Sprintf("com.trakt.mymovies.%s.total", endPointKey)
 	if err := cacheStore.Get(key, &movies); err != nil {
-		resp, err := GetWithAuth("calendars/" + endPoint, params)
+		resp, err := GetWithAuth("calendars/"+endPoint, params)
 
 		if err != nil {
 			log.Error(err)
@@ -500,9 +501,9 @@ func (movie *Movie) ToListItem() *xbmc.ListItem {
 			Mediatype:     "movie",
 		},
 		Art: &xbmc.ListItemArt{
-			Poster: movie.Images.Poster.Full,
-			FanArt: movie.Images.FanArt.Full,
-			Banner: movie.Images.Banner.Full,
+			Poster:    movie.Images.Poster.Full,
+			FanArt:    movie.Images.FanArt.Full,
+			Banner:    movie.Images.Banner.Full,
 			Thumbnail: movie.Images.Thumbnail.Full,
 		},
 	}

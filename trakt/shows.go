@@ -1,25 +1,23 @@
 package trakt
 
 import (
+	"errors"
 	"fmt"
+	"math/rand"
 	"path"
-	"time"
-  	"errors"
+	"sort"
 	"strconv"
 	"strings"
-	"math/rand"
 	"sync"
-	"sort"
+	"time"
 
-//	"github.com/op/go-logging"
+	"github.com/charly3pins/magnetar/cache"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/tmdb"
+	"github.com/charly3pins/magnetar/xbmc"
+
 	"github.com/jmcvetta/napping"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/cache"
-	"github.com/charly3pins/quasar/tmdb"
-	"github.com/charly3pins/quasar/xbmc"
 )
-
-//var showLog = logging.MustGetLogger("show")
 
 // Fill fanart from TMDB
 func setShowFanart(show *Show) *Show {
@@ -105,7 +103,7 @@ func GetShow(Id string) (show *Show) {
 		resp, err := Get(endPoint, params)
 		if err != nil {
 			log.Error(err)
-			xbmc.Notify("Quasar", fmt.Sprintf("Failed getting Trakt show (%s), check your logs.", Id), config.AddonIcon())
+			xbmc.Notify("Magnetar", fmt.Sprintf("Failed getting Trakt show (%s), check your logs.", Id), config.AddonIcon())
 			return
 		}
 		if err := resp.Unmarshal(&show); err != nil {
@@ -129,7 +127,7 @@ func GetShowByTMDB(tmdbId string) (show *Show) {
 		resp, err := Get(endPoint, params)
 		if err != nil {
 			log.Error(err)
-			xbmc.Notify("Quasar", "Failed getting Trakt show using TMDB ID, check your logs.", config.AddonIcon())
+			xbmc.Notify("Magnetar", "Failed getting Trakt show using TMDB ID, check your logs.", config.AddonIcon())
 			return
 		}
 		if err := resp.Unmarshal(&show); err != nil {
@@ -151,7 +149,7 @@ func GetShowByTVDB(tvdbId string) (show *Show) {
 		resp, err := Get(endPoint, params)
 		if err != nil {
 			log.Error(err)
-			xbmc.Notify("Quasar", "Failed getting Trakt show using TVDB ID, check your logs.", config.AddonIcon())
+			xbmc.Notify("Magnetar", "Failed getting Trakt show using TVDB ID, check your logs.", config.AddonIcon())
 			return
 		}
 		if err := resp.Unmarshal(&show); err != nil {
@@ -173,7 +171,7 @@ func GetEpisode(id string) (episode *Episode) {
 		resp, err := Get(endPoint, params)
 		if err != nil {
 			log.Error(err)
-			xbmc.Notify("Quasar", "Failed getting Trakt episode, check your logs.", config.AddonIcon())
+			xbmc.Notify("Magnetar", "Failed getting Trakt episode, check your logs.", config.AddonIcon())
 			return
 		}
 		if err := resp.Unmarshal(&episode); err != nil {
@@ -195,7 +193,7 @@ func GetEpisodeByTMDB(tmdbId string) (episode *Episode) {
 		resp, err := Get(endPoint, params)
 		if err != nil {
 			log.Error(err)
-			xbmc.Notify("Quasar", "Failed getting Trakt episode using TMDB ID, check your logs.", config.AddonIcon())
+			xbmc.Notify("Magnetar", "Failed getting Trakt episode using TMDB ID, check your logs.", config.AddonIcon())
 			return
 		}
 		if err := resp.Unmarshal(&episode); err != nil {
@@ -217,7 +215,7 @@ func GetEpisodeByTVDB(tvdbId string) (episode *Episode) {
 		resp, err := Get(endPoint, params)
 		if err != nil {
 			log.Error(err)
-			xbmc.Notify("Quasar", "Failed getting Trakt episode using TVDB ID, check your logs.", config.AddonIcon())
+			xbmc.Notify("Magnetar", "Failed getting Trakt episode using TVDB ID, check your logs.", config.AddonIcon())
 			return
 		}
 		if err := resp.Unmarshal(&episode); err != nil {
@@ -233,9 +231,9 @@ func SearchShows(query string, page string) (shows []*Shows, err error) {
 	endPoint := "search"
 
 	params := napping.Params{
-		"page": page,
-		"limit": strconv.Itoa(config.Get().ResultsPerPage),
-		"query": query,
+		"page":     page,
+		"limit":    strconv.Itoa(config.Get().ResultsPerPage),
+		"query":    query,
 		"extended": "full,images",
 	}.AsUrlValues()
 
@@ -265,10 +263,10 @@ func TopShows(topCategory string, page string) (shows []*Shows, total int, err e
 	if err != nil {
 		return shows, 0, err
 	}
-	page = strconv.Itoa((pageInt - 1) * resultsPerPage / limit + 1)
+	page = strconv.Itoa((pageInt-1)*resultsPerPage/limit + 1)
 	params := napping.Params{
-		"page": page,
-		"limit": strconv.Itoa(limit),
+		"page":     page,
+		"limit":    strconv.Itoa(limit),
 		"extended": "full,images",
 	}.AsUrlValues()
 
@@ -284,7 +282,7 @@ func TopShows(topCategory string, page string) (shows []*Shows, total int, err e
 			return shows, 0, errors.New(fmt.Sprintf("Bad status getting top %s Trakt shows: %d", topCategory, resp.Status()))
 		}
 
-	  if topCategory == "popular" {
+		if topCategory == "popular" {
 			var showList []*Show
 			if err := resp.Unmarshal(&showList); err != nil {
 				return shows, 0, err
@@ -298,11 +296,11 @@ func TopShows(topCategory string, page string) (shows []*Shows, total int, err e
 				showListing = append(showListing, &showItem)
 			}
 			shows = showListing
-	  } else {
+		} else {
 			if err := resp.Unmarshal(&shows); err != nil {
 				log.Warning(err)
 			}
-	  }
+		}
 
 		if page != "0" {
 			shows = setShowsFanart(shows)
@@ -364,7 +362,7 @@ func WatchlistShows() (shows []*Shows, err error) {
 
 		shows = setShowsFanart(shows)
 
-		cacheStore.Set(key, shows, 1 * time.Minute)
+		cacheStore.Set(key, shows, 1*time.Minute)
 	}
 
 	return
@@ -408,7 +406,7 @@ func CollectionShows() (shows []*Shows, err error) {
 
 		shows = setShowsFanart(shows)
 
-		cacheStore.Set(key, shows, 1 * time.Minute)
+		cacheStore.Set(key, shows, 1*time.Minute)
 	}
 
 	return
@@ -456,7 +454,7 @@ func ListItemsShows(listId string, withImages bool) (shows []*Shows, err error) 
 			shows = setShowsFanart(shows)
 		}
 
-		cacheStore.Set(key, shows, 1 * time.Minute)
+		cacheStore.Set(key, shows, 1*time.Minute)
 	}
 
 	return
@@ -469,10 +467,10 @@ func CalendarShows(endPoint string, page string) (shows []*CalendarShow, total i
 	if err != nil {
 		return shows, 0, err
 	}
-	page = strconv.Itoa((pageInt - 1) * resultsPerPage / limit + 1)
+	page = strconv.Itoa((pageInt-1)*resultsPerPage/limit + 1)
 	params := napping.Params{
-		"page": page,
-		"limit": strconv.Itoa(limit),
+		"page":     page,
+		"limit":    strconv.Itoa(limit),
 		"extended": "full,images",
 	}.AsUrlValues()
 
@@ -481,7 +479,7 @@ func CalendarShows(endPoint string, page string) (shows []*CalendarShow, total i
 	key := fmt.Sprintf("com.trakt.myshows.%s.%s", endPointKey, page)
 	totalKey := fmt.Sprintf("com.trakt.myshows.%s.total", endPointKey)
 	if err := cacheStore.Get(key, &shows); err != nil {
-		resp, err := GetWithAuth("calendars/" + endPoint, params)
+		resp, err := GetWithAuth("calendars/"+endPoint, params)
 
 		if err != nil {
 			return shows, 0, err
@@ -568,8 +566,8 @@ func WatchedShowsProgress() (shows []*ProgressShow, err error) {
 	var mapLock = sync.RWMutex{}
 
 	params := napping.Params{
-		"hidden": "false",
-		"specials": "false",
+		"hidden":         "false",
+		"specials":       "false",
 		"count_specials": "true",
 	}.AsUrlValues()
 
@@ -602,7 +600,7 @@ func WatchedShowsProgress() (shows []*ProgressShow, err error) {
 			if err := resp.Unmarshal(&watchedProgressShow); err != nil {
 				log.Warning(err)
 			}
-			
+
 			// Make sure only one thread writes into map
 			mapLock.Lock()
 			watchedProgressShows[show.Show.IDs.TMDB] = watchedProgressShow
@@ -611,7 +609,7 @@ func WatchedShowsProgress() (shows []*ProgressShow, err error) {
 			if watchedProgressShow.Aired > watchedProgressShow.Completed {
 				if watchedProgressShow.NextEpisode.Number != 0 && watchedProgressShow.NextEpisode.Season != 0 {
 					showItem := ProgressShow{
-						Show: show.Show,
+						Show:    show.Show,
 						Episode: &watchedProgressShow.NextEpisode,
 					}
 
@@ -675,13 +673,13 @@ func WatchedShowProgress(showId int) (err error) {
 	show := tmdb.GetShow(showId, config.Get().Language)
 
 	if show == nil {
-                log.Error("Can't fetch show ", showId, " from TMDB")
-                return
-        }
+		log.Error("Can't fetch show ", showId, " from TMDB")
+		return
+	}
 
 	params := napping.Params{
-		"hidden": "false",
-		"specials": "false",
+		"hidden":         "false",
+		"specials":       "false",
 		"count_specials": "true",
 	}.AsUrlValues()
 
@@ -699,7 +697,7 @@ func WatchedShowProgress(showId int) (err error) {
 	if err := resp.Unmarshal(&watchedProgressShow); err != nil {
 		log.Warning(err)
 	}
-			
+
 	// Now we can populate all maps
 	WatchedShowsMap[showId] = AiredStatus{Aired: watchedProgressShow.Aired, Completed: watchedProgressShow.Completed}
 	for _, season := range watchedProgressShow.Seasons {
@@ -744,9 +742,9 @@ func (show *Show) ToListItem() *xbmc.ListItem {
 			Mediatype:     "tvshow",
 		},
 		Art: &xbmc.ListItemArt{
-			Poster: show.Images.Poster.Full,
-			FanArt: show.Images.FanArt.Full,
-			Banner: show.Images.Banner.Full,
+			Poster:    show.Images.Poster.Full,
+			FanArt:    show.Images.FanArt.Full,
+			Banner:    show.Images.Banner.Full,
 			Thumbnail: show.Images.Thumbnail.Full,
 		},
 	}
@@ -769,7 +767,7 @@ func (season *Season) ToListItem(show *Show) *xbmc.ListItem {
 			Mediatype:     "season",
 		},
 		Art: &xbmc.ListItemArt{
-			Poster: season.Images.Poster.Full,
+			Poster:    season.Images.Poster.Full,
 			Thumbnail: season.Images.Thumbnail.Full,
 			// FanArt: season.Images.FanArt.Full,
 		},

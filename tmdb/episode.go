@@ -2,14 +2,15 @@ package tmdb
 
 import (
 	"fmt"
+	"math/rand"
 	"path"
 	"time"
-	"math/rand"
+
+	"github.com/charly3pins/magnetar/cache"
+	"github.com/charly3pins/magnetar/config"
+	"github.com/charly3pins/magnetar/xbmc"
 
 	"github.com/jmcvetta/napping"
-	"github.com/charly3pins/quasar/cache"
-	"github.com/charly3pins/quasar/config"
-	"github.com/charly3pins/quasar/xbmc"
 )
 
 func GetEpisode(showId int, seasonNumber int, episodeNumber int, language string) *Episode {
@@ -19,9 +20,9 @@ func GetEpisode(showId int, seasonNumber int, episodeNumber int, language string
 	if err := cacheStore.Get(key, &episode); err != nil {
 		rateLimiter.Call(func() {
 			urlValues := napping.Params{
-				"api_key": apiKey,
+				"api_key":            apiKey,
 				"append_to_response": "credits,images,videos,external_ids",
-				"language": language,
+				"language":           language,
 			}.AsUrlValues()
 			resp, err := napping.Get(
 				fmt.Sprintf("%stv/%d/season/%d/episode/%d", tmdbEndpoint, showId, seasonNumber, episodeNumber),
@@ -31,14 +32,14 @@ func GetEpisode(showId int, seasonNumber int, episodeNumber int, language string
 			)
 			if err != nil {
 				log.Error(err.Error())
-				xbmc.Notify("Quasar", fmt.Sprintf("Failed getting S%02dE%02d of %d, check your logs.", seasonNumber, episodeNumber, showId), config.AddonIcon())
+				xbmc.Notify("Magnetar", fmt.Sprintf("Failed getting S%02dE%02d of %d, check your logs.", seasonNumber, episodeNumber, showId), config.AddonIcon())
 			} else if resp.Status() == 429 {
 				log.Warningf("Rate limit exceeded getting S%02dE%02d of %d, cooling down...", seasonNumber, episodeNumber, showId)
 				rateLimiter.CoolDown(resp.HttpResponse().Header)
 			} else if resp.Status() != 200 {
 				message := fmt.Sprintf("Bad status getting S%02dE%02d of %d: %d", seasonNumber, episodeNumber, showId, resp.Status())
 				log.Error(message)
-				xbmc.Notify("Quasar", message, config.AddonIcon())
+				xbmc.Notify("Magnetar", message, config.AddonIcon())
 			}
 		})
 
@@ -95,11 +96,11 @@ func (episode *Episode) ToListItem(show *Show) *xbmc.ListItem {
 
 	runtime := 1800
 	if len(show.EpisodeRunTime) > 0 {
-		runtime = show.EpisodeRunTime[len(show.EpisodeRunTime) - 1] * 60
+		runtime = show.EpisodeRunTime[len(show.EpisodeRunTime)-1] * 60
 	}
 
 	item := &xbmc.ListItem{
-		Label: episodeLabel,
+		Label:  episodeLabel,
 		Label2: fmt.Sprintf("%f", episode.VoteAverage),
 		Info: &xbmc.ListItemInfo{
 			Count:         rand.Int(),

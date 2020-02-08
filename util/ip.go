@@ -5,7 +5,7 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/charly3pins/quasar/config"
+	"github.com/charly3pins/magnetar/config"
 )
 
 func LocalIP() (net.IP, error) {
